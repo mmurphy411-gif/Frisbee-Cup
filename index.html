@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Frisbee Cup</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <canvas id="scene"></canvas>
+    <div id="vignette"></div>
+
+    <div id="hud" class="hidden">
+      <div id="hole-card" class="panel">
+        <div class="hole-num">Hole <span id="hole-number">1</span></div>
+        <div id="hole-name">Welcome Wagon</div>
+        <div class="hole-meta">Par <span id="hole-par">3</span> · <span id="hole-length">0</span> ft</div>
+      </div>
+
+      <div id="player-card" class="panel">
+        <div class="swatch" id="player-swatch"></div>
+        <div>
+          <div id="player-name">Player 1</div>
+          <div class="sub">Throw <span id="player-throw">1</span> · <span id="player-total">E</span></div>
+        </div>
+        <div class="to-pin"><span id="to-pin">0</span> ft<div class="sub">to basket</div></div>
+      </div>
+
+      <div id="right-col">
+        <div id="wind-card" class="panel">
+          <svg id="wind-arrow" viewBox="-20 -20 40 40" width="46" height="46" aria-hidden="true">
+            <circle r="18" fill="none" stroke="currentColor" stroke-opacity="0.25" stroke-width="2" />
+            <g id="wind-needle"><path d="M0,-15 L6,2 L0,-2 L-6,2 Z" fill="currentColor" /><rect x="-1.5" y="-2" width="3" height="15" fill="currentColor" /></g>
+          </svg>
+          <div><div id="wind-speed">Calm</div><div class="sub" id="weather-name">Sunny</div></div>
+        </div>
+        <canvas id="minimap" width="220" height="260" class="panel"></canvas>
+      </div>
+
+      <div id="shot-panel" class="panel">
+        <canvas id="angles" width="250" height="96"></canvas>
+        <div class="shot-rows">
+          <div class="row" id="disc-row"></div>
+          <div class="row">
+            <button id="style-btn" class="chip" title="Throw style (T)"></button>
+            <button id="mode-btn" class="chip" title="Shot type (G)"></button>
+            <button id="map-btn" class="chip" title="Overhead view (M)">Map</button>
+            <button id="help-btn" class="chip" title="Controls (H)">?</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="swing" class="panel">
+        <div id="swing-track"><div id="swing-fill"></div><div id="swing-tick"></div></div>
+        <div id="swing-label">Hold, pull back,<br />flick forward</div>
+      </div>
+
+      <div id="pin-marker"><div class="pin-dist"></div><div class="pin-stem"></div></div>
+      <div id="toast"></div>
+      <div id="banner"></div>
+    </div>
+
+    <div id="menu" class="overlay">
+      <div class="sheet menu-sheet">
+        <h1>Frisbee Cup</h1>
+        <p class="tagline">Neighborhood disc golf. Pick a course and tee off.</p>
+        <h2>Course</h2>
+        <div id="course-cards"></div>
+        <h2>Players</h2>
+        <div id="player-count" class="seg"></div>
+        <div id="player-list"></div>
+        <h2>Conditions</h2>
+        <div class="field"><label>Weather</label><div id="weather-seg" class="seg"></div></div>
+        <div class="field"><label>Wind</label><div id="wind-seg" class="seg"></div></div>
+        <div class="field"><label>Wind from</label><div id="winddir-seg" class="seg"></div></div>
+        <div class="field"><label>Time of day</label><div id="time-seg" class="seg"></div></div>
+        <h2>Graphics</h2>
+        <div class="field"><label>Quality</label><div id="quality-seg" class="seg"></div></div>
+        <button id="start-btn" class="primary">Tee off</button>
+      </div>
+    </div>
+
+    <div id="scorecard" class="overlay hidden">
+      <div class="sheet wide">
+        <h1 id="score-title">Scorecard</h1>
+        <div id="score-table"></div>
+        <button id="score-btn" class="primary">Next hole</button>
+      </div>
+    </div>
+
+    <div id="help" class="overlay hidden">
+      <div class="sheet wide">
+        <h1>How to play</h1>
+        <div class="help-grid">
+          <div><b>Throw</b><p>Hold the left mouse button, pull the mouse back to wind up, then flick it forward. The pull sets your power; a crisp, straight flick delivers it. Drifting sideways pulls the throw off line.</p></div>
+          <div><b>Aim</b><p><kbd>A</kbd> <kbd>D</kbd> turn · <kbd>W</kbd> <kbd>S</kbd> loft · hold <kbd>Shift</kbd> for fine steps. Right-drag also turns and lofts.</p></div>
+          <div><b>Shape</b><p><kbd>Q</kbd> <kbd>E</kbd> or the mouse wheel tilts the disc: hyzer curves towards the fade side, anhyzer away from it. <kbd>R</kbd> <kbd>F</kbd> raise or drop the nose.</p></div>
+          <div><b>Bag</b><p><kbd>1</kbd> driver · <kbd>2</kbd> midrange · <kbd>3</kbd> putter. <kbd>T</kbd> switches backhand, forehand and overhand. <kbd>G</kbd> switches full, approach and putt swings.</p></div>
+          <div><b>Views</b><p><kbd>M</kbd> overhead map · <kbd>Tab</kbd> scorecard · <kbd>H</kbd> this help. The dashed line shows a full swing in still air; wind is on you.</p></div>
+          <div><b>Rules</b><p>Streets and yards are in play, and so are docks, bridges and decks. Roofs, pools, ponds, lakes and creeks are out of bounds: one penalty throw, then play from where the disc last crossed in. Farthest from the basket throws next.</p></div>
+        </div>
+        <button id="help-close" class="primary">Got it</button>
+      </div>
+    </div>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
