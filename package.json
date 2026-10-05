@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "party": "vite --host",
     "build": "vite build",
     "preview": "vite preview",
     "sim": "node tools/sim_test.mjs"

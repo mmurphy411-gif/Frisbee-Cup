@@ -2,6 +2,7 @@
 // surface queries (pavement, sand, water, decks, out of bounds).
 import { groundHeight } from './terrain.js';
 import { inQuad } from './geom.js';
+import { PROP_COLLIDERS } from './props/index.js';
 
 const CELL = 8;
 export const SURFACE = { GRASS: 0, PAVED: 1, SAND: 2 };
@@ -206,7 +207,7 @@ export class World {
         }
         break;
       }
-      default: break;
+      default: PROP_COLLIDERS[p.type]?.(p, { world: this, y, cos, sin, box }); break;
     }
   }
 

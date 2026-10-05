@@ -26,6 +26,19 @@
         "--strictPort"
       ],
       "port": 5181
+    },
+    {
+      "name": "frisbee-party",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "party",
+        "--",
+        "--port",
+        "5182",
+        "--strictPort"
+      ],
+      "port": 5182
     }
   ]
 }

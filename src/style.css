@@ -74,6 +74,14 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #8fd0ff; col
 .choice-btn:hover { border-color: var(--accent); }
 .choice-btn small { display: block; font-size: 12px; font-weight: 400; color: var(--ink-soft); }
 .choice-btn kbd { flex: none; }
+.net-panel { margin-top: 10px; padding: 12px 14px; border-radius: 12px; background: #f3f7fa; border: 2px solid var(--line); font-size: 14px; }
+.net-panel .net-url { font-size: 18px; font-weight: 800; color: var(--accent); user-select: all; }
+.net-panel ul { list-style: none; margin: 8px 0 0; padding: 0; }
+.net-panel li { padding: 4px 0; display: flex; gap: 8px; align-items: center; }
+.net-panel li.off { opacity: 0.45; }
+.net-panel .dot { width: 9px; height: 9px; border-radius: 50%; background: #46a758; flex: none; }
+.net-panel li.off .dot { background: #9aa5b1; }
+.net-panel small { color: var(--ink-soft); }
 #toast {
   position: absolute; left: 50%; top: 24%; transform: translate(-50%, -50%) scale(0.9); opacity: 0; transition: opacity 0.25s, transform 0.25s;
   font-size: 34px; font-weight: 800; color: #fff; text-shadow: 0 3px 0 rgba(23, 50, 74, 0.55), 0 0 18px rgba(23, 50, 74, 0.45); text-align: center; white-space: nowrap;

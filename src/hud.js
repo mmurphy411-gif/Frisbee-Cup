@@ -5,7 +5,7 @@ import { WEATHER, TIMES } from './render/sky.js';
 import { QUALITY } from './render/quality.js';
 import { boardFor } from './records.js';
 
-export const PLAYER_COLORS = ['#ff7a3d', '#3b82f6', '#f4c20d', '#a855f7'];
+export const PLAYER_COLORS = ['#ff7a3d', '#3b82f6', '#f4c20d', '#a855f7', '#22c55e', '#ef4444', '#14b8a6', '#ec4899'];
 export const WIND_LEVELS = [
   { name: 'Calm', speed: 0, gust: 0 },
   { name: 'Breezy', speed: 2.7, gust: 0.25 },
@@ -199,15 +199,15 @@ export class Hud {
         row.innerHTML = `<div class="swatch" style="background:${PLAYER_COLORS[i]}"></div>`;
         const input = document.createElement('input');
         input.value = cfg.names[i]; input.maxLength = 14; input.setAttribute('aria-label', `Player ${i + 1} name`);
-        input.oninput = () => { cfg.names[i] = input.value; };
+        input.oninput = () => { cfg.names[i] = input.value; this.playersChanged(); };
         const hand = document.createElement('div');
         hand.className = 'seg';
-        segmented(hand, ['Right', 'Left'], cfg.hands[i] === 'R' ? 0 : 1, (k) => { cfg.hands[i] = k ? 'L' : 'R'; });
+        segmented(hand, ['Right', 'Left'], cfg.hands[i] === 'R' ? 0 : 1, (k) => { cfg.hands[i] = k ? 'L' : 'R'; this.playersChanged(); });
         row.append(input, hand);
         list.appendChild(row);
       }
     };
-    segmented($('player-count'), ['1', '2', '3', '4'], cfg.count - 1, (i) => { cfg.count = i + 1; renderPlayers(); });
+    segmented($('player-count'), ['1', '2', '3', '4'], cfg.count - 1, (i) => { cfg.count = i + 1; renderPlayers(); this.playersChanged(); });
     segmented($('weather-seg'), weatherKeys.map((k) => WEATHER[k].name), 0, (i) => { cfg.weather = i; preview(); });
     segmented($('time-seg'), timeKeys.map((k) => TIMES[k].name), cfg.time, (i) => { cfg.time = i; preview(); });
     segmented($('sfx-seg'), ['On', 'Off'], init.sfx ? 0 : 1, (i) => this.h.onSound({ sfx: i === 0 }));
@@ -228,13 +228,65 @@ export class Hud {
     this.refreshRecords();
     $('start-btn').onclick = () => {
       const from = Object.values(WIND_FROM)[cfg.from];
-      this.h.onStart({
+      const config = {
         players: this.players(),
         weather: weatherKeys[cfg.weather],
         time: timeKeys[cfg.time],
         wind: { ...WIND_LEVELS[cfg.wind], dir: from ?? Math.random() * Math.PI * 2 },
-      });
+      };
+      const net = this.net;
+      if (net?.joined) {
+        // everyone online in the lobby, device by device, each player in their own colour
+        const roster = net.peers.filter((d) => d.online).flatMap((d) => d.players.map((pl) => ({ ...pl, owner: d.id })));
+        if (roster.length) {
+          config.players = roster.map((pl, i) => ({ ...pl, color: PLAYER_COLORS[i % PLAYER_COLORS.length] }));
+          Object.assign(config, { net: true, course: cfg.course });
+        }
+      }
+      this.h.onStart(config);
     };
+  }
+
+  // ------------------------------------------------------------- Wi-Fi play
+  // Shown when the game is served by its own dev server: join the lobby, see who else is
+  // in it, and the address other devices should open.
+  setupNet(net) {
+    this.net = net;
+    $('net-section').classList.remove('hidden');
+    segmented($('net-seg'), ['Off', 'On'], 0, (i) => {
+      if (i) net.join(this.players()); else net.leave();
+      this.renderNet();
+    });
+    net.onPeers = () => this.renderNet();
+  }
+
+  playersChanged() {
+    if (!this.net?.joined) return;
+    clearTimeout(this.helloTimer);
+    this.helloTimer = setTimeout(() => this.net.join(this.players()), 300);
+  }
+
+  renderNet() {
+    const net = this.net, el = $('net-panel');
+    el.classList.toggle('hidden', !net.joined);
+    if (!net.joined) return;
+    let html = net.lan && net.urls.length
+      ? `<div>Other devices on this Wi-Fi can join at</div>${net.urls.map((u) => `<div class="net-url">${esc(u)}</div>`).join('')}`
+      : '<div>To let other devices join, start the game with <b>npm run party</b>.</div>';
+    html += '<ul>';
+    for (const d of net.peers) {
+      if (!d.players.length) continue;
+      const names = d.players.map((pl) => esc(pl.name)).join(', ') || 'no players';
+      html += `<li class="${d.online ? '' : 'off'}"><span class="dot"></span><span>${names}${d.id === net.id ? ' <small>(this device)</small>' : d.online ? '' : ' <small>(offline)</small>'}</span></li>`;
+    }
+    html += '</ul><small>Anyone can press Tee off to start everyone on this course.</small>';
+    el.innerHTML = html;
+  }
+
+  // A round started on another device: show its course as the selected one.
+  selectCourse(id) {
+    this.cfg.course = id;
+    for (const c of [...$('course-cards').children, ...$('champ-cards').children]) c.classList.toggle('active', c.dataset.id === id);
   }
 
   // Reflect the music switch after it was flipped from the keyboard.

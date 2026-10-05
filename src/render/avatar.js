@@ -298,7 +298,17 @@ const POSES = {
     release: [
       [0.25, { chest: -60, pelvis: -50, crouch: 0.1, shift: 0.3, lean: 8, hand: [0.12, -0.22, 1.15], off: [0.22, -0.38, 1.1] }],
       [0.45, { chest: 0, pelvis: -15, crouch: 0.08, shift: 0.7, lean: 6, hand: [0.66, 0.12, 1.17], off: [-0.2, -0.36, 1.05] }],
-      [1, { chest: 45, pelvis: 15, crouch: 0.05, shift: 0.85, lean: 4, hand: [0.25, 0.62, 1.35], off: [-0.3, -0.26, 1.0] }],
+      [0.75, { chest: 30, pelvis: 5, crouch: 0.07, shift: 0.95, lean: 6, hand: [0.4, 0.55, 1.28], off: [-0.28, -0.3, 1.02],
+        feet: [[0.36, 0.02, -60], [-0.12, 0.14, -50, 0.1]] }],
+      [1, { chest: 45, pelvis: 25, crouch: 0.05, shift: 1, lean: 4, hand: [0.25, 0.62, 1.35], off: [-0.3, -0.26, 1.0],
+        feet: [[0.36, 0.02, -50], [0.12, 0.3, -20, 0.03]] }],
+    ],
+    // the run-up: an X-step. Plants are [forward, towards the throwing side, toe angle] from
+    // the lie at each stage of the approach; one foot swings between each pair of stages.
+    approach: [
+      [[-0.95, 0.14, -15], [-1.05, -0.14, -15]],
+      [[-0.6, 0.06, -45], [-1.05, -0.14, -15]],
+      [[-0.6, 0.06, -45], [-0.3, 0.12, -95]],
     ],
   },
   fh: {
@@ -308,7 +318,15 @@ const POSES = {
     release: [
       [0.3, { chest: 40, pelvis: 25, crouch: 0.09, shift: 0.2, lean: 8, hand: [0.2, 0.52, 1.02], off: [0.25, -0.4, 1.18] }],
       [0.5, { chest: 0, pelvis: 0, crouch: 0.07, shift: 0.6, lean: 6, hand: [0.58, 0.3, 1.06], off: [0, -0.42, 1.08] }],
-      [1, { chest: -35, pelvis: -15, crouch: 0.05, shift: 0.8, lean: 4, hand: [0.36, -0.2, 1.12], off: [-0.25, -0.34, 1.0] }],
+      [0.75, { chest: -25, pelvis: -8, crouch: 0.06, shift: 0.92, lean: 6, hand: [0.4, -0.08, 1.1], off: [-0.26, -0.36, 1.0],
+        feet: [[0.0, 0.12, 20, 0.1], [0.3, -0.16, 10]] }],
+      [1, { chest: -35, pelvis: -15, crouch: 0.05, shift: 1, lean: 4, hand: [0.36, -0.2, 1.12], off: [-0.25, -0.34, 1.0],
+        feet: [[0.34, 0.12, 15, 0.02], [0.3, -0.16, 10]] }],
+    ],
+    approach: [
+      [[-0.9, 0.14, 10], [-1.0, -0.14, 10]],
+      [[-0.9, 0.14, 10], [-0.5, -0.12, 10]],
+      [[-0.2, 0.2, 25], [-0.5, -0.12, 10]],
     ],
   },
   oh: {
@@ -337,7 +355,9 @@ const POSES = {
 };
 
 const NUMS = ['chest', 'pelvis', 'crouch', 'shift', 'lean'];
-const copyPose = (p) => ({ ...p, hand: [...p.hand], off: [...p.off], feet: p.feet.map((f) => [...f]) });
+// a foot is [forward, towards the throwing side, toe angle, lift off the ground]
+const foot4 = (f) => [f[0], f[1], f[2], f[3] ?? 0];
+const copyPose = (p) => ({ ...p, hand: [...p.hand], off: [...p.off], feet: p.feet.map(foot4) });
 const ease = (t) => t * t * (3 - 2 * t);
 
 function blend(a, b, t, out) {
@@ -346,7 +366,7 @@ function blend(a, b, t, out) {
     out.hand[i] = a.hand[i] + (b.hand[i] - a.hand[i]) * t;
     out.off[i] = a.off[i] + (b.off[i] - a.off[i]) * t;
   }
-  for (let f = 0; f < 2; f++) for (let i = 0; i < 3; i++) out.feet[f][i] = a.feet[f][i] + (b.feet[f][i] - a.feet[f][i]) * t;
+  for (let f = 0; f < 2; f++) for (let i = 0; i < 4; i++) out.feet[f][i] = (a.feet[f][i] ?? 0) + ((b.feet[f][i] ?? 0) - (a.feet[f][i] ?? 0)) * t;
   return out;
 }
 
@@ -456,6 +476,7 @@ export class Avatar {
       const ready = withFeet(def.ready, def);
       if (def.back) blend(ready, withFeet(def.back, def), ease(o.pull || 0), target);
       else copyInto(ready, target);
+      if (o.approach && def.approach) runUp(def, o.pull || 0, target);
       // breathing and the odd shift of weight
       target.crouch += Math.sin(this.time * 2.1) * 0.006;
       if (o.phase === 'idle') target.shift += Math.sin(this.time * 0.37) * 0.25;
@@ -474,10 +495,10 @@ export class Avatar {
     // feet on the ground (throwing-side foot first)
     const ground = o.heightAt(o.x, o.z);
     for (let k = 0; k < 2; k++) {
-      const [a, b, yd] = c.feet[k];
+      const [a, b, yd, lift] = c.feet[k];
       at(a, b, this.foot[k].position);
-      this.foot[k].position.y = o.heightAt(this.foot[k].position.x, this.foot[k].position.z);
-      this.foot[k].rotation.set(0, -(yaw + s * yd * DEG), 0);
+      this.foot[k].position.y = o.heightAt(this.foot[k].position.x, this.foot[k].position.z) + Math.max(0, lift);
+      this.foot[k].rotation.set(0, -(yaw + s * yd * DEG), -Math.min(0.5, Math.max(0, lift) * 5), 'YXZ');
     }
 
     // pelvis between the feet, weighted towards the front or back foot
@@ -559,6 +580,23 @@ export class Avatar {
   }
 }
 
+// Walk the feet through the run-up: the approach is done by half way through the pull,
+// and the rest of the pull is the reach back on the planted feet. Until the plant the
+// body faces down the line rather than side-on.
+function runUp(def, pull, out) {
+  const keys = [...def.approach, def.feet], legs = keys.length - 1;
+  const t = Math.min(1, pull / 0.5) * legs, i = Math.min(legs - 1, Math.floor(t)), u = ease(t - i);
+  for (let f = 0; f < 2; f++) {
+    const A = keys[i][f], B = keys[i + 1][f], moving = Math.hypot(B[0] - A[0], B[1] - A[1]) > 0.25; // short moves pivot
+    for (let k = 0; k < 3; k++) out.feet[f][k] = A[k] + (B[k] - A[k]) * u;
+    out.feet[f][3] = moving ? Math.sin(Math.PI * u) * 0.09 : 0;
+  }
+  const square = 1 - Math.min(1, t / legs);
+  out.chest += (10 * Math.sign(def.ready.chest) - out.chest) * square;
+  out.pelvis += (10 * Math.sign(def.ready.pelvis) - out.pelvis) * square;
+  out.shift = out.shift * (1 - square) + 0.3 * square;
+}
+
 function withFeet(p, def) {
   return p.feet ? p : { ...p, feet: def.feet };
 }
@@ -566,6 +604,6 @@ function withFeet(p, def) {
 function copyInto(src, out) {
   for (const k of NUMS) out[k] = src[k];
   for (let i = 0; i < 3; i++) { out.hand[i] = src.hand[i]; out.off[i] = src.off[i]; }
-  for (let f = 0; f < 2; f++) for (let i = 0; i < 3; i++) out.feet[f][i] = src.feet[f][i];
+  for (let f = 0; f < 2; f++) for (let i = 0; i < 4; i++) out.feet[f][i] = src.feet[f][i] ?? 0;
   return out;
 }

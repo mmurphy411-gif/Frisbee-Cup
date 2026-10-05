@@ -12,6 +12,7 @@ import { U, disposeTree, aimSightLine } from './render/shared.js';
 import { Audio } from './audio.js';
 import { Hud } from './hud.js';
 import { Game } from './game.js';
+import { Net } from './net.js';
 
 // remembered menu choices; browser storage can be unavailable, so everything is optional
 const store = {
@@ -72,6 +73,7 @@ const hud = new Hud({
   },
   onStart: (config) => {
     store.set('time', config.time);
+    if (config.net) net.send({ t: 'start', config });
     game.start(config);
   },
   onKey: (code) => game.key(code, true),
@@ -90,6 +92,20 @@ audio.onChange = () => {
 hud.setMusic(audio.music.enabled);
 game = new Game({ scene, camera, rig, hud, audio, sky, effects, canvas });
 window.__fc = game; // handy in the console
+
+// Wi-Fi play: when another device tees off, this one joins the round on the same course.
+const net = new Net();
+game.net = net;
+net.onMessage = (msg) => {
+  if (msg.t === 'start') {
+    hud.hideScorecard();
+    hud.selectCourse(msg.config.course);
+    showCourse(msg.config.course);
+    game.start(msg.config);
+  } else game.receive(msg);
+};
+net.probe().then((ok) => { if (ok) hud.setupNet(net); });
+window.addEventListener('pagehide', () => net.leave());
 
 function showCourse(id, force = false) {
   if (course && course.id === id && !force) return;

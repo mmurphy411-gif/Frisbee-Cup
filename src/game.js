@@ -86,10 +86,14 @@ export class Game {
     // what a ghost needs to put a challenger in exactly the same conditions
     this.conditions = { weather: config.weather, time: config.time, wind: { ...config.wind } };
     const roster = [...config.players];
+    // in a Wi-Fi round, players on other devices throw there and their throws are replayed here
+    this.netRound = !!config.net && !!this.net;
+    this.inbox = [];
     const g = config.ghost;
     if (g) roster.push({ name: `${g.name}'s ghost`, color: GHOST_COLOR, hand: g.hand, ghost: g });
     this.players = roster.map((p, i) => ({
       ...p, scores: [], strokes: 0, lie: { x: 0, z: 0 }, holed: false, teed: false, order: i, style: 'bh',
+      remote: this.netRound && p.owner !== this.net.id,
       rec: p.ghost ? null : { holes: [] }, throwIdx: 0,
       marker: makeMarker(this.scene, p.color),
       avatar: new Avatar(this.scene, playerLook(i, p, config.weather)),
@@ -153,6 +157,7 @@ export class Game {
       next.strokes++;
       return this.holeOut(next, 'Tap-in');
     }
+    if (next.remote) return this.remoteTurn(next);
     this.setupAim(next);
     this.state = 'aim';
     this.pull = 0;
@@ -324,15 +329,21 @@ export class Game {
 
   resolve() {
     const s = this.flight, p = this.current, hole = this.hole;
-    if (s.holed) return this.holeOut(p);
+    if (p.remote) return this.resolveRemote(p);
+    if (s.holed) {
+      this.share(p, null, false);
+      return this.holeOut(p);
+    }
     if (s.ob) {
       // penalty throw, then play on from where it went out (or a drop zone), or re-throw
       p.strokes++;
       const spots = this.outSpots(s);
       p.lie = spots.out;
       if (!p.ghost && p.strokes < hole.par + 5) return this.offerRethrow(p, spots, s.start);
+      this.share(p, p.lie, true);
     } else {
       p.lie = this.world.relief(s.p.x, s.p.z);
+      this.share(p, p.lie, false);
     }
     // a ghost always plays its next throw from exactly where it played it before
     const nextThrow = p.ghost?.holes[this.holeIndex]?.throws[p.throwIdx];
@@ -364,6 +375,7 @@ export class Game {
       if (this.state !== 'obChoice' || !picks[i]) return;
       this.hud.hideChoice();
       p.lie = { x: picks[i].at.x, z: picks[i].at.z };
+      this.share(p, p.lie, true);
       this.audio.play('tick');
       this.nextTurn();
     };
@@ -371,6 +383,99 @@ export class Game {
       title: `${p.name}: one penalty throw`,
       options: picks.map((o, i) => ({ key: String(i + 1), label: o.label, sub: toBasket(o.at), pick: () => this.obPick(i) })),
     });
+  }
+
+  // ------------------------------------------------------------- Wi-Fi play
+  // Tell the other devices how our throw went: the recording (replayed exactly, like a
+  // ghost's) and where the player plays on from.
+  share(p, lie, penalty) {
+    if (!this.netRound || p.remote || p.ghost) return;
+    const throws = p.rec.holes[this.holeIndex].throws;
+    this.net.send({
+      t: 'turn', hole: this.holeIndex, player: this.players.indexOf(p), k: p.throwIdx++,
+      rec: throws[throws.length - 1], lie: lie && { x: lie.x, z: lie.z }, penalty,
+    });
+  }
+
+  // Someone on another device is up: watch them line up until their throw arrives.
+  remoteTurn(p) {
+    this.setupAim(p);
+    this.preview.hide();
+    this.state = 'remote';
+    this.pull = 0;
+    this.hud.swingIdle();
+    this.hud.toast(`${p.name}<small>throw ${p.strokes + 1} · on their device</small>`, 1600);
+    this.rig.set(this.mapView ? 'map' : 'aim', {});
+    this.feedCamera();
+    this.pump();
+  }
+
+  // A message from another device. Turns wait in order until this device catches up to them.
+  receive(msg) {
+    if (!this.netRound) return;
+    if (msg.t === 'aim') {
+      if (this.state === 'remote' && msg.hole === this.holeIndex && this.players[msg.player] === this.current) {
+        for (const k of ['yaw', 'loft', 'nose', 'hyzer', 'disc', 'style', 'mode']) this.aim[k] = msg[k];
+        this.pull = msg.pull;
+        this.feedCamera();
+      }
+      return;
+    }
+    if (msg.t === 'turn') {
+      this.inbox.push(msg);
+      this.pump();
+    }
+  }
+
+  pump() {
+    while (this.state === 'remote' && this.inbox.length) {
+      const msg = this.inbox[0], p = this.current, i = this.players.indexOf(p);
+      const ahead = msg.hole > this.holeIndex || (msg.hole === this.holeIndex && msg.player === i && msg.k > p.throwIdx);
+      if (ahead) return; // this device hasn't got there yet
+      this.inbox.shift();
+      if (msg.hole === this.holeIndex && msg.player === i && msg.k === p.throwIdx) return this.remoteThrow(p, msg);
+      // anything else is a turn this device has already played out
+    }
+  }
+
+  remoteThrow(p, msg) {
+    p.throwIdx++;
+    p.netTurn = msg;
+    Object.assign(this.aim, msg.rec.aim);
+    this.flight = replayState(msg.rec);
+    this.eventIdx = 0;
+    this.recording = null;
+    p.strokes++; p.teed = true; p.style = msg.rec.aim.style;
+    this.state = 'flight';
+    this.disc.setColor(p.color);
+    this.tracer.reset(p.color);
+    p.avatar.startThrow();
+    this.rig.set('chase', { state: this.flight, yaw: this.aim.yaw });
+    this.audio.play('throw', 0.8);
+  }
+
+  resolveRemote(p) {
+    const turn = p.netTurn, hole = this.hole;
+    if (this.flight.holed) return this.holeOut(p);
+    if (turn.penalty) p.strokes++;
+    p.lie = { ...turn.lie };
+    if (p.strokes >= hole.par + 5) return this.holeOut(p, 'Picked up');
+    this.nextTurn();
+  }
+
+  // While we line up, let the others watch (a few times a second, and only when it changes).
+  shareAim(dt) {
+    this.aimClock = (this.aimClock ?? 0) - dt;
+    if (this.aimClock > 0) return;
+    this.aimClock = 0.12;
+    const a = this.aim, msg = {
+      t: 'aim', v: 1, hole: this.holeIndex, player: this.players.indexOf(this.current),
+      yaw: a.yaw, loft: a.loft, nose: a.nose, hyzer: a.hyzer, disc: a.disc, style: a.style, mode: a.mode, pull: this.pull,
+    };
+    const key = JSON.stringify(msg);
+    if (key === this.aimSent) return;
+    this.aimSent = key;
+    this.net.send(msg);
   }
 
   holeOut(p, label) {
@@ -413,7 +518,8 @@ export class Game {
   finishRound() {
     const L = this.layout, humans = this.players.filter((p) => !p.ghost), ghost = this.players.find((p) => p.ghost);
     const strokes = (p) => p.scores.reduce((a, s) => a + s, 0);
-    const results = addRounds(L.id, humans.map((p) => ({
+    // each device keeps the boards for its own players
+    const results = addRounds(L.id, humans.filter((p) => !p.remote).map((p) => ({
       ref: p, name: p.name, color: p.color, hand: p.hand, strokes: strokes(p), toPar: this.totalFor(p),
       scores: p.scores, conditions: this.conditions, holes: p.rec.holes,
     })));
@@ -544,7 +650,10 @@ export class Game {
       if (this.timer <= 0) this.nextTurn();
     } else if (this.state === 'aim') {
       if (this.aimDirty) this.updatePreview();
+      if (this.netRound) this.shareAim(dt);
       this.feedCamera();
+      this.focus.set(p.lie.x, this.standY(p.lie.x, p.lie.z), p.lie.z);
+    } else if (this.state === 'remote') {
       this.focus.set(p.lie.x, this.standY(p.lie.x, p.lie.z), p.lie.z);
     } else if (this.state === 'ghost') {
       this.feedCamera();
@@ -628,13 +737,14 @@ export class Game {
     const route = this.hole.route;
     for (const p of this.players) {
       const av = p.avatar;
-      if (p === cur && (this.state === 'aim' || this.state === 'ghost' || flying)) {
+      if (p === cur && (this.state === 'aim' || this.state === 'ghost' || this.state === 'remote' || flying)) {
         const aim = this.aim, x = p.lie.x - Math.cos(aim.yaw) * 0.25, z = p.lie.z - Math.sin(aim.yaw) * 0.25;
         const ahead = { x: p.lie.x + Math.cos(aim.yaw) * 25, y: this.standY(p.lie.x, p.lie.z) + 1.4, z: p.lie.z + Math.sin(aim.yaw) * 25 };
         av.held.visible = !av.thrown;
         av.pose({
           x, z, yaw: aim.yaw, kind: aim.mode === 2 && aim.style === 'bh' ? 'putt' : aim.style,
           phase: av.thrown ? 'throw' : 'aim', pull: this.pull, tilt: this.fadeSide() * aim.hyzer,
+          approach: aim.mode === 0 && !p.ghost, // full shots get a run-up
           look: disc ?? ahead, heightAt: this.heightAt,
         }, dt);
       } else {
@@ -656,7 +766,7 @@ export class Game {
     this.camera.getWorldDirection(_v);
     const viewYaw = Math.atan2(_v.z, _v.x);
     hud.setWind(this.windCfg.speed, this.windCfg.dir, viewYaw, this.weather.name);
-    hud.setPlayer(p, p.strokes + (this.state === 'aim' || this.state === 'ghost' ? 1 : 0), relPar(this.totalFor(p)));
+    hud.setPlayer(p, p.strokes + (this.state === 'aim' || this.state === 'ghost' || this.state === 'remote' ? 1 : 0), relPar(this.totalFor(p)));
     const flying = this.state === 'flight' || this.state === 'settle';
     const from = flying ? this.flight.p : p.lie;
     const dist = Math.hypot(this.basket.x - from.x, this.basket.z - from.z);

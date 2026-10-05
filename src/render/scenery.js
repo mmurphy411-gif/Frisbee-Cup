@@ -7,6 +7,7 @@ import { BASKET } from '../sim/flight.js';
 import { mulberry32 } from '../sim/rng.js';
 import { Merge } from './merge.js';
 import { U, enhance } from './shared.js';
+import { PROP_RENDERERS } from './props/index.js';
 
 const CAR_COLORS = ['#d9534f', '#3b7dd8', '#f2f2f2', '#2f3640', '#e6b422', '#4caf7d', '#8e44ad', '#c0c4c8'];
 const FOUNDATION = '#a39a8c';
@@ -746,6 +747,7 @@ export function buildScenery(L, world, group) {
         break;
       }
       default:
+        PROP_RENDERERS[p.type]?.(p, { M, f, y, G, rng, theme, roof, world });
         break;
     }
   }
