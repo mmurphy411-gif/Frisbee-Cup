@@ -3,6 +3,7 @@ import { DISCS, STYLES, POWER_MODES } from './sim/discs.js';
 import { WORLD } from './sim/terrain.js';
 import { WEATHER, TIMES } from './render/sky.js';
 import { QUALITY } from './render/quality.js';
+import { boardFor } from './records.js';
 
 export const PLAYER_COLORS = ['#ff7a3d', '#3b82f6', '#f4c20d', '#a855f7'];
 export const WIND_LEVELS = [
@@ -13,6 +14,20 @@ export const WIND_LEVELS = [
 ];
 // compass point the wind comes from -> heading it blows towards
 const WIND_FROM = { Random: null, N: Math.PI / 2, E: Math.PI, S: -Math.PI / 2, W: 0 };
+const COMPASS = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+
+// "Sunny · Evening · Breezy from the NW", for a saved round's conditions.
+export function describeConditions(c) {
+  if (!c) return '';
+  const w = c.wind || {};
+  let wind = w.name || 'Calm';
+  if (w.speed > 0) {
+    const bearing = Math.atan2(-Math.cos(w.dir), Math.sin(w.dir)); // where it blows from; 0 = north
+    wind += ` from the ${COMPASS[((Math.round(bearing / (Math.PI / 4)) % 8) + 8) % 8]}`;
+  }
+  return [WEATHER[c.weather]?.name, TIMES[c.time]?.name, wind].filter(Boolean).join(' · ');
+}
+
 const MAP_SCALE = 4; // map canvas pixels per metre (matches render/terrain.js)
 const DEG = 180 / Math.PI;
 
@@ -67,6 +82,10 @@ function drawThumb(canvas, L) {
   g.strokeStyle = g.fillStyle = T.ground.lawn;
   for (const r of L.roads) if (r.lawn) { trace(r.pts); g.lineWidth = r.lawn * 2 * s; g.stroke(); }
   for (const a of L.lawnAreas) { trace(a, true); g.fill(); }
+  g.fillStyle = T.ground.sand;
+  for (const a of L.sand) { trace(a.poly.pts, true); g.fill(); }
+  g.fillStyle = T.ground.green ?? T.ground.lawn;
+  for (const a of L.greens || []) { trace(a, true); g.fill(); }
   for (const t of L.trees) {
     g.fillStyle = t.color;
     g.globalAlpha = 0.55;
@@ -112,6 +131,7 @@ export class Hud {
     this.buildMenu();
     this.buildBag();
     $('help-btn').onclick = () => this.toggleHelp();
+    $('music-btn').onclick = () => this.h.onKey('KeyN');
     $('help-close').onclick = () => this.toggleHelp(false);
     $('map-btn').onclick = () => this.h.onKey('KeyM');
     $('style-btn').onclick = () => this.h.onKey('KeyT');
@@ -144,8 +164,9 @@ export class Hud {
     const weatherKeys = Object.keys(WEATHER);
     const preview = () => this.h.onConditions(weatherKeys[cfg.weather], timeKeys[cfg.time]);
 
-    const cards = $('course-cards');
+    const allCards = () => [...$('course-cards').children, ...$('champ-cards').children];
     for (const L of this.h.courses) {
+      const cards = L.tier === 'championship' ? $('champ-cards') : $('course-cards');
       const card = document.createElement('button');
       card.type = 'button';
       card.className = 'course-card';
@@ -156,11 +177,12 @@ export class Hud {
       thumb.width = 300; thumb.height = 220;
       drawThumb(thumb, L);
       card.append(thumb);
-      card.insertAdjacentHTML('beforeend', `<div class="course-name">${esc(L.name)}</div><div class="course-meta">Par ${par} · ${feet(len).toLocaleString()} ft</div><div class="course-blurb">${esc(L.blurb)}</div>`);
+      card.insertAdjacentHTML('beforeend', `<div class="course-name">${esc(L.name)}${L.holes.length > 9 ? ` <span class="tag">${L.holes.length} holes</span>` : ''}</div><div class="course-meta">Par ${par} · ${feet(len).toLocaleString()} ft</div><div class="course-blurb">${esc(L.blurb)}</div><div class="course-record"></div>`);
       card.onclick = () => {
         if (cfg.course === L.id) return;
         cfg.course = L.id;
-        [...cards.children].forEach((c) => c.classList.toggle('active', c.dataset.id === L.id));
+        allCards().forEach((c) => c.classList.toggle('active', c.dataset.id === L.id));
+        this.renderBoard();
         card.classList.add('loading');
         // let the highlight paint before the course is built
         setTimeout(() => { this.h.onCourse(L.id); card.classList.remove('loading'); }, 30);
@@ -188,6 +210,9 @@ export class Hud {
     segmented($('player-count'), ['1', '2', '3', '4'], cfg.count - 1, (i) => { cfg.count = i + 1; renderPlayers(); });
     segmented($('weather-seg'), weatherKeys.map((k) => WEATHER[k].name), 0, (i) => { cfg.weather = i; preview(); });
     segmented($('time-seg'), timeKeys.map((k) => TIMES[k].name), cfg.time, (i) => { cfg.time = i; preview(); });
+    segmented($('sfx-seg'), ['On', 'Off'], init.sfx ? 0 : 1, (i) => this.h.onSound({ sfx: i === 0 }));
+    this.renderMusicSeg = (on) => segmented($('music-seg'), ['On', 'Off'], on ? 0 : 1, (i) => this.h.onSound({ music: i === 0 }));
+    this.renderMusicSeg(init.music);
     segmented($('quality-seg'), qualityKeys.map((k) => QUALITY[k].name), Math.max(0, qualityKeys.indexOf(init.quality)), (i) => {
       const btns = [...$('quality-seg').children];
       btns[i].classList.add('loading');
@@ -197,12 +222,14 @@ export class Hud {
     segmented($('wind-seg'), WIND_LEVELS.map((w) => w.name), cfg.wind, (i) => { cfg.wind = i; });
     segmented($('winddir-seg'), Object.keys(WIND_FROM), 0, (i) => { cfg.from = i; });
     renderPlayers();
+    this.players = () => Array.from({ length: cfg.count }, (_, i) => ({
+      name: cfg.names[i].trim() || `Player ${i + 1}`, color: PLAYER_COLORS[i], hand: cfg.hands[i],
+    }));
+    this.refreshRecords();
     $('start-btn').onclick = () => {
       const from = Object.values(WIND_FROM)[cfg.from];
       this.h.onStart({
-        players: Array.from({ length: cfg.count }, (_, i) => ({
-          name: cfg.names[i].trim() || `Player ${i + 1}`, color: PLAYER_COLORS[i], hand: cfg.hands[i],
-        })),
+        players: this.players(),
         weather: weatherKeys[cfg.weather],
         time: timeKeys[cfg.time],
         wind: { ...WIND_LEVELS[cfg.wind], dir: from ?? Math.random() * Math.PI * 2 },
@@ -210,7 +237,47 @@ export class Hud {
     };
   }
 
+  // Reflect the music switch after it was flipped from the keyboard.
+  setMusic(on) {
+    this.renderMusicSeg(on);
+    $('music-btn').classList.toggle('off', !on);
+  }
+
+  // The record line on every course card, and the board for the selected course.
+  refreshRecords() {
+    for (const card of [...$('course-cards').children, ...$('champ-cards').children]) {
+      const best = boardFor(card.dataset.id).entries[0];
+      card.querySelector('.course-record').textContent = best
+        ? `Record ${best.strokes} (${relPar(best.toPar)}) · ${best.name}`
+        : 'No record yet';
+    }
+    this.renderBoard();
+  }
+
+  renderBoard() {
+    const L = this.h.courses.find((c) => c.id === this.cfg.course) ?? this.h.courses[0];
+    const board = boardFor(L.id), el = $('board');
+    const day = (iso) => new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    let html = `<div class="board-head"><b>Best rounds</b> · ${esc(L.name)}</div>`;
+    if (!board.entries.length) {
+      html += '<p class="board-empty">No rounds on the board yet. Finish a round here to set the course record, and your ghost will be waiting for the next challenger.</p>';
+    } else {
+      html += '<table class="board-table">' + board.entries.map((e, i) => `<tr class="${i === 0 ? 'top' : ''}"><td class="rank">${i + 1}</td><td class="who">${esc(e.name)}</td><td class="num">${e.strokes}</td><td class="num">${relPar(e.toPar)}</td><td class="cond">${esc(describeConditions(e.conditions))}</td><td class="when">${day(e.date)}</td></tr>`).join('') + '</table>';
+    }
+    const g = board.ghost;
+    if (g) {
+      html += `<button type="button" id="ghost-btn" class="ghost-btn">Face the ghost of ${esc(g.name)} · ${g.strokes} (${relPar(g.toPar)})<small>Same course, same conditions: ${esc(describeConditions(g.conditions))}</small></button>`;
+    }
+    el.innerHTML = html;
+    if (g) {
+      $('ghost-btn').onclick = () => this.h.onStart({
+        players: this.players(), weather: g.conditions.weather, time: g.conditions.time, wind: { ...g.conditions.wind }, ghost: g,
+      });
+    }
+  }
+
   showGame(on) {
+    if (!on) this.refreshRecords();
     $('menu').classList.toggle('hidden', on);
     $('hud').classList.toggle('hidden', !on);
   }
@@ -408,21 +475,31 @@ export class Hud {
   }
 
   // -------------------------------------------------------------- scorecard
-  showScorecard({ holes, players, played, current, title, button, onAction }) {
-    const head = `<tr><th></th>${holes.map((h) => `<th>${h.number}</th>`).join('')}<th>Total</th><th>±</th></tr>`;
-    const parRow = `<tr><td class="name">Par</td>${holes.map((h) => `<td>${h.par}</td>`).join('')}<td class="total">${holes.reduce((a, h) => a + h.par, 0)}</td><td></td></tr>`;
-    const rows = players.map((p) => {
-      let total = 0, rel = 0;
-      const cells = holes.map((h, i) => {
-        const s = p.scores[i];
-        if (s == null) return '<td></td>';
-        total += s; rel += s - h.par;
-        return `<td class="${s < h.par ? 'under' : s > h.par ? 'over' : ''}">${s}</td>`;
+  showScorecard({ holes, players, played, current, title, button, onAction, notes = [] }) {
+    // eighteen holes split into Out and In, like a golf scorecard
+    const halves = holes.length > 9 ? [[0, 9, 'Out'], [9, holes.length, 'In']] : [[0, holes.length, null]];
+    const sum = (list) => list.reduce((a, v) => a + (v ?? 0), 0);
+    const tables = halves.map(([a, b, label], k) => {
+      const part = holes.slice(a, b), last = k === halves.length - 1;
+      const head = `<tr><th></th>${part.map((h) => `<th>${h.number}</th>`).join('')}${label ? `<th>${label}</th>` : ''}${last ? '<th>Total</th><th>±</th>' : ''}</tr>`;
+      const parTotal = sum(holes.map((h) => h.par));
+      const parRow = `<tr><td class="name">Par</td>${part.map((h) => `<td>${h.par}</td>`).join('')}${label ? `<td class="total">${sum(part.map((h) => h.par))}</td>` : ''}${last ? `<td class="total">${parTotal}</td><td></td>` : ''}</tr>`;
+      const rows = players.map((p) => {
+        const cells = part.map((h, i) => {
+          const s = p.scores[a + i];
+          if (s == null) return '<td></td>';
+          return `<td class="${s < h.par ? 'under' : s > h.par ? 'over' : ''}">${s}</td>`;
+        }).join('');
+        const done = holes.map((h, i) => (p.scores[i] == null ? null : p.scores[i]));
+        const total = sum(done), rel = sum(done.map((s, i) => (s == null ? null : s - holes[i].par)));
+        const half = sum(p.scores.slice(a, b));
+        return `<tr class="${p === current ? 'current' : ''}"><td class="name"><span class="swatch" style="background:${p.color}"></span>${esc(p.name)}</td>${cells}${label ? `<td class="total">${played && half ? half : ''}</td>` : ''}${last ? `<td class="total">${played ? total : ''}</td><td class="total">${played ? relPar(rel) : ''}</td>` : ''}</tr>`;
       }).join('');
-      return `<tr class="${p === current ? 'current' : ''}"><td class="name"><span class="swatch" style="background:${p.color}"></span>${esc(p.name)}</td>${cells}<td class="total">${played ? total : ''}</td><td class="total">${played ? relPar(rel) : ''}</td></tr>`;
-    }).join('');
-    $('score-table').innerHTML = `<table class="card">${head}${parRow}${rows}</table>`;
+      return `<table class="card">${head}${parRow}${rows}</table>`;
+    });
+    $('score-table').innerHTML = tables.join('');
     $('score-title').textContent = title;
+    $('score-notes').innerHTML = notes.map((n) => `<p>${esc(n)}</p>`).join('');
     $('score-btn').textContent = button;
     this.scoreAction = onAction;
     $('scorecard').classList.remove('hidden');

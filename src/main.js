@@ -31,6 +31,23 @@ const camera = new THREE.PerspectiveCamera(55, 1, 0.3, 900);
 const sky = new Sky(scene);
 const effects = new Effects(scene);
 const audio = new Audio();
+audio.music.enabled = store.get('music', 'on') !== 'off';
+audio.sfxOn = store.get('sfx', 'on') !== 'off';
+audio.music.play('clubhouse'); // starts once the browser lets audio play
+// browsers only allow sound after the first click or key press
+const wake = () => audio.unlock();
+window.addEventListener('pointerdown', wake, { once: true, capture: true });
+window.addEventListener('keydown', wake, { once: true, capture: true });
+// Pinches and ctrl-scrolls would zoom the whole page (and the browser remembers it), so
+// swallow them everywhere: over the course, the menu, the scorecard, any time.
+window.addEventListener('wheel', (e) => { if (e.ctrlKey) e.preventDefault(); }, { passive: false });
+for (const type of ['gesturestart', 'gesturechange', 'gestureend']) document.addEventListener(type, (e) => e.preventDefault());
+// a little click for every button
+document.addEventListener('click', (e) => {
+  const b = e.target.closest?.('button');
+  if (!b) return;
+  audio.play(b.id === 'start-btn' ? 'start' : b.classList.contains('course-card') ? 'select' : 'click');
+});
 
 let qualityKey = QUALITY[store.get('quality')] ? store.get('quality') : 'high';
 let quality = QUALITY[qualityKey];
@@ -50,6 +67,8 @@ const hud = new Hud({
     course: entries.some((e) => e.id === store.get('course')) ? store.get('course') : entries[0].id,
     quality: qualityKey,
     time: store.get('time', 'midday'),
+    music: audio.music.enabled,
+    sfx: audio.sfxOn,
   },
   onStart: (config) => {
     store.set('time', config.time);
@@ -59,7 +78,16 @@ const hud = new Hud({
   onCourse: (id) => showCourse(id),
   onQuality: (key) => setQuality(key),
   onConditions: (weather, time) => sky.setConditions(weather, time),
+  onSound: ({ music, sfx }) => {
+    if (music !== undefined) { audio.setMusic(music); audio.onChange(); }
+    if (sfx !== undefined) { audio.setEffects(sfx); store.set('sfx', sfx ? 'on' : 'off'); }
+  },
 });
+audio.onChange = () => {
+  store.set('music', audio.music.enabled ? 'on' : 'off');
+  hud.setMusic(audio.music.enabled);
+};
+hud.setMusic(audio.music.enabled);
 game = new Game({ scene, camera, rig, hud, audio, sky, effects, canvas });
 window.__fc = game; // handy in the console
 

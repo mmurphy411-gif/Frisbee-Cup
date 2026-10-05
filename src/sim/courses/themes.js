@@ -10,6 +10,7 @@ const HOMES = {
 
 export const SUMMER = {
   season: 'summer',
+  music: 'fairway', ambience: 'park',
   ground: {
     woods: '#4b8b3d', woodsMottle: ['#3c7a31', '#58993f', '#41823a', '#6a9a3e'],
     lawn: '#6cb14f', lawnMottle: ['#5fa346', '#7cc15a', '#93cf66', '#68ad4b'],
@@ -32,6 +33,7 @@ export const SUMMER = {
 
 export const LAKESIDE = {
   ...SUMMER,
+  music: 'island', ambience: 'shore',
   ground: {
     ...SUMMER.ground,
     woods: '#47873f', lawn: '#72b752', lawnMottle: ['#64a849', '#80c65d', '#97d26a', '#6cb04c'],
@@ -45,6 +47,7 @@ export const LAKESIDE = {
 
 export const AUTUMN = {
   season: 'autumn',
+  music: 'autumn', ambience: 'woods',
   ground: {
     woods: '#8a6a3c', woodsMottle: ['#7a5a2f', '#a07a40', '#94683a', '#6f5a32', '#b0823f'],
     lawn: '#8fae4b', lawnMottle: ['#86a545', '#9db857', '#a9b55a', '#7f9f42'],
@@ -70,6 +73,7 @@ export const AUTUMN = {
 
 export const PINES = {
   ...SUMMER,
+  music: 'autumn', ambience: 'woods',
   ground: {
     ...SUMMER.ground,
     woods: '#5d6a3a', woodsMottle: ['#6e5d3c', '#4f6334', '#7d6743', '#58703b', '#86704a'],
@@ -117,6 +121,7 @@ export const SPRING = {
 export const DESERT = {
   ...SUMMER,
   season: 'summer',
+  music: 'desert', ambience: 'desert',
   ground: {
     woods: '#c7a676', woodsMottle: ['#b8946a', '#d4b585', '#a8865c', '#c99f6e', '#9c8a62'],
     lawn: '#8fb25a', lawnMottle: ['#84a852', '#9cbc66', '#a8c070', '#7f9f4c'],
@@ -143,6 +148,7 @@ export const DESERT = {
 
 export const SEASIDE = {
   ...SUMMER,
+  music: 'island', ambience: 'surf',
   ground: {
     ...SUMMER.ground,
     woods: '#8f9f5a', woodsMottle: ['#a2a868', '#7f914e', '#b3ad74', '#869a52'],
@@ -164,6 +170,7 @@ export const SEASIDE = {
 export const WINTER = {
   ...SUMMER,
   season: 'winter',
+  music: 'snowfall', ambience: 'winter',
   ground: {
     woods: '#e9eff3', woodsMottle: ['#dfe7ed', '#f4f7f9', '#d3dde5', '#e6ecef'],
     lawn: '#f1f5f7', lawnMottle: ['#e8eef2', '#f7fafb', '#dde6ec'],
@@ -184,4 +191,124 @@ export const WINTER = {
   porchDecor: null,
   ambientLeaves: ['#ffffff', '#f4f8ff', '#e8f0f6'], // light snowfall
   water: { shallow: '#8fb8c8', deep: '#4f7f98', foam: '#f4f9fb' },
+};
+
+// Championship parkland in spring: pine straw under tall pines, white bunker sand,
+// azaleas and dogwoods in bloom.
+export const MAGNOLIA = {
+  ...SUMMER,
+  season: 'spring',
+  music: 'fairway', ambience: 'woods',
+  ground: {
+    ...SUMMER.ground,
+    woods: '#a8703f', woodsMottle: ['#9a6334', '#b98049', '#8d5a2f', '#c28c55', '#7f6a3a'],
+    lawn: '#58a646', lawnMottle: ['#4f9c3f', '#63b250', '#6dba57', '#55a344'],
+    green: '#7cc861', fringe: '#4a9a3c',
+    sand: '#f3f1ea', mud: '#7d7a55', bottom: '#5d7a5a', deep: '#245a55', dirt: '#8a6440',
+  },
+  foliage: {
+    ...SUMMER.foliage,
+    broad: ['#2f6a35', '#3a7a3c', '#2a5f30', '#447f40'],
+    pine: ['#24502f', '#2a5a35', '#1f4a2b', '#2f6039'],
+    bush: ['#e0457b', '#f06aa0', '#ffffff', '#d12f5e', '#f28aa8', '#e8567a'],
+  },
+  walls: ['#f6f3ea'], roofs: ['#3f5747'], shutters: ['#2f5d3a'],
+  porchDecor: 'flowers',
+  water: { shallow: '#4aa39a', deep: '#245f66', foam: '#f2fbf8' },
+};
+
+// Florida stadium golf: sandy pine straw, live oaks, palms and dark lagoons.
+export const SAWGRASS = {
+  ...SUMMER,
+  music: 'island', ambience: 'shore',
+  ground: {
+    ...SUMMER.ground,
+    woods: '#b49c66', woodsMottle: ['#a68c58', '#c2ab76', '#9a8552', '#8f8a52', '#bba06a'],
+    lawn: '#55a443', lawnMottle: ['#4c9a3c', '#60ae4c', '#6ab654', '#52a042'],
+    green: '#7acb62', fringe: '#469a3a',
+    sand: '#efe8d6', mud: '#6f6a48', bottom: '#4f6650', deep: '#1c4a52', dirt: '#6e5a3e', rock: '#7a6a52',
+  },
+  foliage: {
+    ...SUMMER.foliage,
+    broad: ['#566f43', '#4f6a3e', '#62794a', '#5a7546'],
+    pine: ['#2f5a3a', '#355f3f', '#2a5235'],
+    palm: ['#4f7f3a', '#5a8a40', '#46733a', '#62904a'],
+    bush: ['#4f7a3f', '#5c8646', '#45703a'],
+  },
+  palmTrunk: '#a08c6a',
+  walls: ['#efe2c8'], roofs: ['#b5533a'], shutters: ['#3d5a40'],
+  porchDecor: null,
+  water: { shallow: '#3f8c8c', deep: '#1c4f5c', foam: '#eef8f6' },
+};
+
+// Clifftop links on a rocky peninsula: wind-shaped cypress, Monterey pines, ice plant.
+export const MONTEREY = {
+  ...SUMMER,
+  music: 'autumn', ambience: 'surf',
+  ground: {
+    ...SUMMER.ground,
+    woods: '#86955a', woodsMottle: ['#7a8a50', '#94a064', '#a19a62', '#748752'],
+    lawn: '#4f9a42', lawnMottle: ['#47913b', '#58a249', '#62aa52', '#4c9640'],
+    green: '#77c45e', fringe: '#438c38',
+    sand: '#ead9b0', mud: '#7a7058', bottom: '#5f7d78', deep: '#1f5470', dirt: '#7a6a55', rock: '#867c70',
+  },
+  foliage: {
+    ...SUMMER.foliage,
+    broad: ['#4a6e3e', '#527545', '#43663a'],
+    pine: ['#2f5a3e', '#355f43', '#2a5238'],
+    cypress: ['#2c4a35', '#33533b', '#29452f', '#38573e'],
+    bush: ['#6f8a4f', '#7a9455', '#66804a', '#839a5a'],
+  },
+  walls: ['#f2ece0', '#e6dccb', '#d8d0c2'], roofs: ['#4a5560', '#5b6470'], shutters: ['#2f4f6f'],
+  porchDecor: 'flowers',
+  water: { shallow: '#3fa5b5', deep: '#1f5f8e', foam: '#ffffff' },
+};
+
+// Old seaside links: golden fescue, gorse in flower, grey stone town and slate roofs.
+export const LINKS = {
+  ...SUMMER,
+  music: 'autumn', ambience: 'surf',
+  ground: {
+    ...SUMMER.ground,
+    woods: '#a3a35e', woodsMottle: ['#9a9a55', '#b0ac66', '#8f9550', '#b8b070', '#a0a85c'],
+    lawn: '#6aa84a', lawnMottle: ['#60a043', '#72b052', '#7ab458', '#66a447'],
+    green: '#83c463', fringe: '#5a9a40',
+    sand: '#dcc794', mud: '#8a7a58', bottom: '#6a7e72', deep: '#2a5a70', dirt: '#8a7a5a', rock: '#8c8578',
+    path: '#c9c2b2', curb: '#b8b2a4', asphalt: '#55585e',
+  },
+  foliage: {
+    ...SUMMER.foliage,
+    broad: ['#4a6a3a', '#557545'],
+    bush: ['#d9bb1f', '#e2c62a', '#c9a81a', '#4f6332', '#5a6e38', '#8a5a8a'], // gorse in flower, gorse, heather
+  },
+  walls: ['#b9b2a6', '#c4bdb0', '#aaa396', '#cfc6b6'], roofs: ['#4a4f57', '#555a62', '#8a3b2f'], shutters: ['#2b2b2b'],
+  doors: ['#2f4a3a', '#5a2b2b', '#2b3a5a', '#1f1f1f'],
+  porchDecor: null,
+  water: { shallow: '#5aa8b0', deep: '#2a6080', foam: '#ffffff' },
+};
+
+// The old French Quarter: brick and flagstone, pastel stucco, iron galleries, the river.
+export const NOLA = {
+  ...SUMMER,
+  music: 'jazz', ambience: 'city',
+  ground: {
+    ...SUMMER.ground,
+    woods: '#a48c76', woodsMottle: ['#9a7f68', '#b09682', '#8f7a66', '#a8907c', '#7f6e5e'],
+    lawn: '#5f9f45', lawnMottle: ['#56963d', '#68a84d', '#72ae55', '#5c9a42'],
+    sand: '#d9c7a0', mud: '#6f6a50', bottom: '#6f6a50', deep: '#5a5a42', dirt: '#7a6550', rock: '#8a8274',
+    path: '#c4b49e', curb: '#a89c8c', asphalt: '#4f5257',
+  },
+  foliage: {
+    ...SUMMER.foliage,
+    broad: ['#3f6a38', '#4a7440', '#557c45', '#d86a9a'],
+    palm: ['#5f9a3a', '#6aa845', '#589038'],
+    bush: ['#4f8a3a', '#5c9a45', '#d86a9a'],
+  },
+  palmTrunk: '#7f7258',
+  walls: ['#f2c9a0', '#f4e1a1', '#cfe0c8', '#d9c6e6', '#f2b8b0', '#a9d0e0', '#e8d5b5', '#f6d8d0', '#c8d9a8', '#f0c27a'],
+  roofs: ['#5b6470', '#4a4f57', '#8a4a3a', '#6b5b52'],
+  shutters: ['#2f5d3a', '#1f3a2a', '#2b2b2b', '#3d6a5a', '#2f4f6f'],
+  doors: ['#2f5d3a', '#5a2b2b', '#2b3a5a', '#1f1f1f'],
+  porchDecor: 'flowers',
+  water: { shallow: '#8a8a5e', deep: '#5f5f40', foam: '#e8e4d0' },
 };

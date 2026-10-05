@@ -360,6 +360,17 @@ export class Avatar {
 
   hide() { this.group.visible = false; }
 
+  // See-through and shadowless, for a replayed ghost player.
+  ghostly() {
+    this.group.traverse((o) => {
+      if (!o.material) return;
+      o.material = o.material.clone(); // the body material is shared, so the ghost gets its own
+      Object.assign(o.material, { transparent: true, opacity: 0.38, depthWrite: false });
+      o.material.emissive?.set('#3a5a8a');
+      o.castShadow = false;
+    });
+  }
+
   dispose() {
     this.scene.remove(this.group);
     this.group.traverse((o) => {

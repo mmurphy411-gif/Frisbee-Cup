@@ -27,7 +27,7 @@ const _w = { x: 0, z: 0 };
 const _surf = { bounce: 0, keep: 0, mu: 0, roll: 0, road: false, sand: false };
 
 function emit(s, type, speed = 0, extra) {
-  s.events.push({ type, speed, x: s.p.x, y: s.p.y, z: s.p.z, ...extra });
+  s.events.push({ type, speed, t: s.t, x: s.p.x, y: s.p.y, z: s.p.z, ...extra });
 }
 
 // Distance falls off much faster than release speed, so swing power maps onto speed
@@ -424,6 +424,8 @@ function collide(s, env, dt) {
           s.n.x = 0; s.n.y = 1; s.n.z = 0;
           emit(s, 'roof');
           rest(s, env);
+          // the eave strip (footprint plus RADIUS) is roof too, even past houseAt's edge
+          if (!s.holed && !s.ob) s.ob = 'roof';
           return;
         }
       } else {

@@ -20,6 +20,7 @@ export class Controls {
     this.keys = new Set();
     this.swing = null;
     this.look = null;
+    this.wheelDeg = 0; // wheel travel not yet turned into a whole degree of tilt
 
     window.addEventListener('keydown', (e) => {
       if (e.target instanceof HTMLInputElement) return;
@@ -40,11 +41,25 @@ export class Controls {
     canvas.addEventListener('pointermove', (e) => this.move(e));
     canvas.addEventListener('pointerup', (e) => this.up(e));
     canvas.addEventListener('pointercancel', () => this.cancel());
-    canvas.addEventListener('wheel', (e) => {
-      if (!this.h.canAim()) return;
+    // The wheel tilts the disc anywhere over the course or the in-game HUD (the shot panel
+    // sits on top of the canvas), but never over menus or sheets that need to scroll.
+    window.addEventListener('wheel', (e) => {
+      if (e.ctrlKey || !this.h.canAim()) return; // a pinch arrives as a ctrl-wheel: not a tilt
+      if (e.target !== canvas && !e.target.closest?.('#hud')) return;
       e.preventDefault();
+      // Shift turns a wheel into a sideways scroll on most browsers, so take either axis.
+      // Three degrees a notch (100 px), or one with Shift held, like the keys' fine steps.
+      // Several notches can arrive merged into one event, and a touchpad sends a stream of
+      // small deltas, so build them up and tilt by whole degrees.
+      const delta = e.deltaY || e.deltaX;
+      const px = delta * (e.deltaMode === 1 ? 100 / 3 : e.deltaMode === 2 ? 400 : 1); // 3 lines a notch
+      if (Math.sign(px) !== Math.sign(this.wheelDeg)) this.wheelDeg = 0; // reversed: start afresh
+      this.wheelDeg += Math.max(-10, Math.min(10, px / 100)) * (e.shiftKey ? 1 : 3);
+      const whole = Math.trunc(this.wheelDeg);
+      if (!whole) return;
+      this.wheelDeg -= whole;
       const aim = this.h.aim;
-      aim.hyzer = clamp(aim.hyzer - Math.sign(e.deltaY) * 1 * DEG, LIMITS.hyzer);
+      aim.hyzer = clamp(aim.hyzer - whole * DEG, LIMITS.hyzer);
       this.h.onChange();
     }, { passive: false });
   }

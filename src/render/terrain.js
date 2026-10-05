@@ -149,6 +149,21 @@ function paintGround(L, world, ppm) {
     g.restore();
   }
 
+  // ---- putting greens: a darker fringe, then the green itself in fine stripes
+  for (const pts of L.greens || []) {
+    g.save();
+    trace(g, pts, ppm, true);
+    g.strokeStyle = T.fringe ?? T.lawn; g.lineWidth = 2.4 * ppm; g.stroke();
+    g.fillStyle = T.green ?? T.lawn; g.fill();
+    g.clip();
+    g.translate(X(pts[0][0]), Z(pts[0][1])); g.rotate(-0.6);
+    for (let k = -30; k < 30; k++) {
+      g.fillStyle = k % 2 ? 'rgba(255,255,230,0.07)' : 'rgba(0,30,0,0.05)';
+      g.fillRect(-60 * ppm, k * 1.2 * ppm, 120 * ppm, 1.2 * ppm);
+    }
+    g.restore();
+  }
+
   // ---- heights: lake and pond beds, shorelines, creek beds and steep banks
   const S = 2, hw = halfW * 2 * S, hh = halfH * 2 * S;
   const hc = document.createElement('canvas');
@@ -381,7 +396,9 @@ function paintMap(ground, waterMask, L) {
 
 export function buildTerrain(layout, world, renderer, quality) {
   const hf = layout.heightfield;
-  const { canvas, waterMask } = paintGround(layout, world, quality.ppm);
+  // keep the painted ground within the pixel budget of a standard 400 x 300 m course
+  const area = layout.world.halfW * layout.world.halfH * 4;
+  const { canvas, waterMask } = paintGround(layout, world, quality.ppm * Math.min(1, Math.sqrt(120000 / area)));
   const tex = new THREE.CanvasTexture(canvas);
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.anisotropy = renderer.capabilities.getMaxAnisotropy();

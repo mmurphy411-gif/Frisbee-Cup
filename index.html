@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
     <title>Frisbee Cup</title>
     <link rel="stylesheet" href="/src/style.css" />
   </head>
@@ -45,6 +45,7 @@
             <button id="style-btn" class="chip" title="Throw style (T)"></button>
             <button id="mode-btn" class="chip" title="Shot type (G)"></button>
             <button id="map-btn" class="chip" title="Overhead view (M)">Map</button>
+            <button id="music-btn" class="chip" title="Music on/off (N)">♪</button>
             <button id="help-btn" class="chip" title="Controls (H)">?</button>
           </div>
         </div>
@@ -66,6 +67,9 @@
         <p class="tagline">Neighborhood disc golf. Pick a course and tee off.</p>
         <h2>Course</h2>
         <div id="course-cards"></div>
+        <h2>Championship courses</h2>
+        <div id="champ-cards"></div>
+        <div id="board" class="board"></div>
         <h2>Players</h2>
         <div id="player-count" class="seg"></div>
         <div id="player-list"></div>
@@ -74,6 +78,9 @@
         <div class="field"><label>Wind</label><div id="wind-seg" class="seg"></div></div>
         <div class="field"><label>Wind from</label><div id="winddir-seg" class="seg"></div></div>
         <div class="field"><label>Time of day</label><div id="time-seg" class="seg"></div></div>
+        <h2>Sound</h2>
+        <div class="field"><label>Music</label><div id="music-seg" class="seg"></div></div>
+        <div class="field"><label>Effects</label><div id="sfx-seg" class="seg"></div></div>
         <h2>Graphics</h2>
         <div class="field"><label>Quality</label><div id="quality-seg" class="seg"></div></div>
         <button id="start-btn" class="primary">Tee off</button>
@@ -84,6 +91,7 @@
       <div class="sheet wide">
         <h1 id="score-title">Scorecard</h1>
         <div id="score-table"></div>
+        <div id="score-notes"></div>
         <button id="score-btn" class="primary">Next hole</button>
       </div>
     </div>
@@ -94,9 +102,9 @@
         <div class="help-grid">
           <div><b>Throw</b><p>Hold the left mouse button, pull the mouse back to wind up, then flick it forward. The pull sets your power; a crisp, straight flick delivers it. Drifting sideways pulls the throw off line.</p></div>
           <div><b>Aim</b><p><kbd>A</kbd> <kbd>D</kbd> turn · <kbd>W</kbd> <kbd>S</kbd> loft · hold <kbd>Shift</kbd> for fine steps. Right-drag also turns and lofts.</p></div>
-          <div><b>Shape</b><p><kbd>Q</kbd> <kbd>E</kbd> or the mouse wheel tilts the disc: hyzer curves towards the fade side, anhyzer away from it. <kbd>R</kbd> <kbd>F</kbd> raise or drop the nose.</p></div>
+          <div><b>Shape</b><p><kbd>Q</kbd> <kbd>E</kbd> or the mouse wheel (3° a notch, 1° with <kbd>Shift</kbd>) tilts the disc: hyzer curves towards the fade side, anhyzer away from it. <kbd>R</kbd> <kbd>F</kbd> raise or drop the nose.</p></div>
           <div><b>Bag</b><p><kbd>1</kbd> driver · <kbd>2</kbd> midrange · <kbd>3</kbd> putter. <kbd>T</kbd> switches backhand, forehand and overhand. <kbd>G</kbd> switches full, approach and putt swings.</p></div>
-          <div><b>Views</b><p><kbd>M</kbd> overhead map · <kbd>Tab</kbd> scorecard · <kbd>H</kbd> this help. The dashed line shows a full swing in still air; wind is on you.</p></div>
+          <div><b>Views</b><p><kbd>M</kbd> overhead map · <kbd>Tab</kbd> scorecard · <kbd>H</kbd> this help · <kbd>N</kbd> music on/off. The dashed line shows a full swing in still air; wind is on you.</p></div>
           <div><b>Rules</b><p>Streets and yards are in play, and so are docks, bridges and decks. Roofs, pools, ponds, lakes and creeks are out of bounds: one penalty throw, then play from where the disc last crossed in. Farthest from the basket throws next.</p></div>
         </div>
         <button id="help-close" class="primary">Got it</button>

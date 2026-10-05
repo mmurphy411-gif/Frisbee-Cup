@@ -12,7 +12,7 @@
 }
 
 * { box-sizing: border-box; }
-html, body { margin: 0; height: 100%; overflow: hidden; background: #8fd0ff; color: var(--ink); }
+html, body { margin: 0; height: 100%; overflow: hidden; background: #8fd0ff; color: var(--ink); touch-action: pan-x pan-y; }
 #scene { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; cursor: crosshair; }
 #vignette { position: fixed; inset: 0; pointer-events: none; background: radial-gradient(ellipse at center, rgba(0,0,0,0) 58%, rgba(10,20,30,0.28) 100%); }
 .hidden { display: none !important; }
@@ -48,6 +48,7 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #8fd0ff; col
   border-radius: 10px; padding: 6px 10px; cursor: pointer; min-height: 34px;
 }
 .chip:hover, .disc-btn:hover { border-color: var(--accent); }
+.chip.off { opacity: 0.45; text-decoration: line-through; }
 .disc-btn { display: flex; flex-direction: column; align-items: flex-start; min-width: 86px; }
 .disc-btn .nums { font-size: 11px; font-weight: 400; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
 .disc-btn.active { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
@@ -82,7 +83,10 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #8fd0ff; col
 .sheet { background: #fffcf4; border-radius: 22px; padding: 26px 30px; width: min(520px, 100%); box-shadow: 0 20px 60px rgba(10, 25, 40, 0.4); max-height: 100%; overflow: auto; }
 .sheet.wide { width: min(820px, 100%); }
 .sheet.menu-sheet { width: min(760px, 100%); }
-#course-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+#course-cards, #champ-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+#champ-cards:empty { display: none; }
+.course-name .tag { white-space: nowrap; font-size: 10px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: #fff; background: #1f6b3a; border-radius: 6px; padding: 2px 6px; vertical-align: middle; }
+#score-table table.card + table.card { margin-top: 10px; }
 .course-card {
   font: inherit; text-align: left; color: var(--ink); background: #fff; border: 3px solid var(--line); border-radius: 14px;
   padding: 0 0 10px; cursor: pointer; overflow: hidden; display: flex; flex-direction: column; transition: border-color 0.15s, transform 0.15s;
@@ -93,6 +97,25 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #8fd0ff; col
 .course-card canvas { width: 100%; aspect-ratio: 300 / 220; display: block; margin-bottom: 8px; }
 .course-name { font-weight: 800; font-size: 16px; padding: 0 10px; }
 .course-meta { font-size: 12px; font-weight: 700; color: var(--accent); padding: 2px 10px 0; }
+.course-record { font-size: 11px; font-weight: 700; color: var(--ink-soft); padding: 6px 10px 0; margin-top: auto; }
+.board { margin-top: 12px; border: 2px solid var(--line); border-radius: 14px; padding: 10px 12px; background: #fff; }
+.board-head { font-size: 14px; margin-bottom: 6px; }
+.board-empty { margin: 4px 0; font-size: 13px; color: var(--ink-soft); }
+.board-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.board-table td { padding: 4px 6px; border-top: 1px solid var(--line); }
+.board-table tr:first-child td { border-top: none; }
+.board-table tr.top td { font-weight: 800; }
+.board-table .rank { width: 22px; color: var(--ink-soft); }
+.board-table .num { text-align: right; width: 34px; font-variant-numeric: tabular-nums; }
+.board-table .cond, .board-table .when { color: var(--ink-soft); font-size: 12px; }
+.board-table .when { text-align: right; white-space: nowrap; }
+.ghost-btn {
+  display: block; width: 100%; margin-top: 10px; padding: 10px 12px; font: inherit; font-weight: 800; font-size: 15px; text-align: left;
+  color: #fff; background: linear-gradient(135deg, #5b6f9c, #34436b); border: none; border-radius: 12px; cursor: pointer;
+}
+.ghost-btn small { display: block; font-weight: 600; font-size: 12px; opacity: 0.85; margin-top: 2px; }
+.ghost-btn:hover { filter: brightness(1.1); }
+#score-notes p { margin: 10px 0 0; font-weight: 700; color: var(--accent); }
 .course-blurb { font-size: 12px; line-height: 1.35; color: var(--ink-soft); padding: 4px 10px 0; }
 .seg button.loading { opacity: 0.55; }
 .sheet h1 { margin: 0; font-size: 34px; letter-spacing: -0.01em; }
@@ -124,7 +147,8 @@ table.card tr.current td { background: rgba(255, 122, 61, 0.1); }
 kbd { font: inherit; font-size: 12px; font-weight: 700; background: #fff; border: 1px solid var(--line); border-bottom-width: 3px; border-radius: 6px; padding: 1px 6px; color: var(--ink); }
 
 @media (max-width: 760px) {
-  #course-cards { grid-template-columns: 1fr; }
+  .board-table .cond { display: none; }
+  #course-cards, #champ-cards { grid-template-columns: 1fr; }
   .course-card { flex-direction: row; align-items: center; padding: 0; }
   .course-card canvas { width: 120px; flex: none; margin: 0 10px 0 0; }
   #minimap { width: 150px; height: 178px; }

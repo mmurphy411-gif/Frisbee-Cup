@@ -8,11 +8,25 @@ import blossom from './blossom.js';
 import mesa from './mesa.js';
 import seaside from './seaside.js';
 import frostwood from './frostwood.js';
+import quarter from './quarter.js';
+import oakbrook from './oakbrook.js';
+import riverbend from './riverbend.js';
+import harvest from './harvest.js';
+import aspen from './aspen.js';
+import marina from './marina.js';
+import tulip from './tulip.js';
+import sandstone from './sandstone.js';
+import snowcap from './snowcap.js';
+import sunset from './sunset.js';
+import magnolia from './magnolia.js';
+import stadium from './stadium.js';
+import monterey from './monterey.js';
+import oldlinks from './oldlinks.js';
 import { CourseBuilder } from '../builder.js';
 import { setTerrain } from '../terrain.js';
 import { World } from '../world.js';
 
-export const COURSES = [horseshoe, lakeside, ridge, pinecrest, canals, blossom, mesa, seaside, frostwood];
+export const COURSES = [horseshoe, lakeside, ridge, pinecrest, canals, blossom, mesa, seaside, frostwood, quarter, oakbrook, riverbend, harvest, aspen, marina, tulip, sandstone, snowcap, sunset, magnolia, stadium, monterey, oldlinks];
 const cache = new Map();
 
 // Build a course (once) and make its terrain the live heightfield.

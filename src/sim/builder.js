@@ -24,7 +24,7 @@ export class CourseBuilder {
     WORLD.halfH = this.halfH;
     this.rng = mulberry32(def.seed);
     this.roads = []; this.footpaths = []; this.water = [];
-    this.lawnAreas = []; this.paved = []; this.sand = []; this.clearZones = [];
+    this.lawnAreas = []; this.greens = []; this.paved = []; this.sand = []; this.clearZones = [];
     this.houses = []; this.driveways = []; this.cars = []; this.mailboxes = [];
     this.hedges = []; this.fences = []; this.pools = []; this.lamps = [];
     this.trees = []; this.platforms = []; this.props = []; this.ducks = [];
@@ -52,6 +52,7 @@ export class CourseBuilder {
   }
 
   lawnArea(pts) { this.lawnAreas.push(pts); }
+  greenArea(pts) { this.greens.push(pts); } // closely mown putting surface
   pavedArea(pts, o = {}) { this.paved.push({ pts, poly: new Polygon(pts), color: o.color }); }
   sandArea(pts) { this.sand.push({ pts, poly: new Polygon(closedSpline(pts, 6)) }); }
   clearZone(x, z, r) { this.clearZones.push({ x, z, r }); }
@@ -208,6 +209,7 @@ export class CourseBuilder {
       chimney: o.chimney ?? this.chance(0.65),
       home: !!o.home, doorU: o.doorU ?? 0, porch: null, garage: null,
       decor: o.decor ?? t.porchDecor ?? null, windows: o.windows ?? true,
+      balcony: o.balcony ?? null, // 'balcony' (iron railing) or 'gallery' (deep, on columns over the sidewalk)
     };
     this.setBase(house);
     this.houses.push(house);
@@ -295,7 +297,7 @@ export class CourseBuilder {
   }
 
   fence(a, b, kind = 'privacy') {
-    this.fences.push({ ax: a.x, az: a.z, bx: b.x, bz: b.z, kind, h: kind === 'picket' ? 1.05 : 1.8 });
+    this.fences.push({ ax: a.x, az: a.z, bx: b.x, bz: b.z, kind, h: kind === 'picket' ? 1.05 : kind === 'iron' ? 1.6 : 1.8 });
   }
 
   lampsAlong(path, every, d, start = 30) {
@@ -339,6 +341,12 @@ export class CourseBuilder {
       h = 1.8 + 1.5 * r; bottom = 0.6; trunkR = 0.12;
     } else if (kind === 'willow') {
       h = (3.8 + 1.0 * r + this.R(0, 1)) * tall; bottom = 0.9; trunkR = 0.22 + 0.04 * r;
+    } else if (kind === 'palm') {
+      // a tall bare trunk with a tuft of fronds at the top
+      h = (7 + 1.1 * r + this.R(0, 3.5)) * tall; bottom = h - 2.4; trunkR = 0.17 + 0.015 * r;
+    } else if (kind === 'cypress') {
+      // Monterey cypress: low, broad and wind-flattened
+      h = (4.2 + 0.85 * r + this.R(0, 1.5)) * tall; bottom = h * 0.5; trunkR = 0.24 + 0.05 * r;
     } else if (kind === 'birch') {
       h = (5 + 1.6 * r + this.R(0, 2)) * tall; bottom = 2.8 + 0.2 * r; trunkR = 0.1 + 0.025 * r;
     } else {
@@ -449,10 +457,10 @@ export class CourseBuilder {
       };
     });
     return {
-      id: this.def.id, name: this.def.name, blurb: this.def.blurb, theme: this.theme,
+      id: this.def.id, name: this.def.name, blurb: this.def.blurb, tier: this.def.tier ?? null, theme: this.theme,
       world: { halfW: this.halfW, halfH: this.halfH }, heightfield: this.hf,
       roads: this.roads, footpaths: this.footpaths, water: this.water,
-      lawnAreas: this.lawnAreas, paved: this.paved, sand: this.sand,
+      lawnAreas: this.lawnAreas, greens: this.greens, paved: this.paved, sand: this.sand,
       houses: this.houses, driveways: this.driveways, cars: this.cars, mailboxes: this.mailboxes,
       hedges: this.hedges, fences: this.fences, pools: this.pools, lamps: this.lamps,
       trees: this.trees, platforms: this.platforms, props: this.props, ducks: this.ducks, holes,

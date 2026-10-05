@@ -115,6 +115,28 @@ function house(M, h, rng, decor, sprites) {
     }
   }
 
+  if (h.balcony) {
+    const deep = h.balcony === 'gallery' ? 2.6 : 1.1, iron = '#1d1e22';
+    for (let floor = 1; floor < h.stories; floor++) {
+      const y = h.base + floor * 2.6 + 0.15;
+      M.detail.local(h, 'box', 0, y - 0.08, out(deep / 2), h.hu * 2, 0.16, deep, '#8a8378');
+      for (const ry of [0.98, 0.12]) M.detail.local(h, 'box', 0, y + ry, out(deep - 0.04), h.hu * 2, 0.06, 0.06, iron);
+      for (let u = -h.hu + 0.05; u <= h.hu; u += 0.42) M.detail.local(h, 'box', u, y + 0.55, out(deep - 0.04), 0.035, 0.9, 0.035, iron);
+      for (const s of [-1, 1]) M.detail.local(h, 'box', s * (h.hu - 0.03), y + 0.55, out(deep / 2), 0.04, 0.9, deep, iron);
+      if (h.balcony === 'gallery' && floor === h.stories - 1) {
+        M.roofs.local(h, 'box', 0, y + 2.45, out(deep / 2), h.hu * 2 + 0.2, 0.1, deep + 0.2, h.roofColor);
+      }
+    }
+    if (h.balcony === 'gallery') {
+      const n = Math.max(1, Math.round((h.hu * 2) / 3));
+      for (let k = 0; k <= n; k++) {
+        const u = -h.hu + 0.2 + (k * (h.hu * 2 - 0.4)) / n;
+        const topY = h.base + (h.stories - 1) * 2.6 + 2.5;
+        M.detail.local(h, 'box', u, (h.low + topY) / 2, out(deep - 0.12), 0.12, topY - h.low, 0.12, iron);
+      }
+    }
+  }
+
   if (h.chimney) {
     const cu = -Math.sign(h.doorU || 1) * h.hu * 0.5, cw = -h.front * h.hv * 0.35;
     const yr = top + h.roofH * 0.65, y2 = r.y1 + 0.7;
@@ -219,6 +241,29 @@ function pineCanopy() {
   return shade(mergeGeometries(parts), 0.58, 1.05, 0, 1, 8);
 }
 
+// Fronds radiating from the crown and drooping at their tips.
+function palmCanopy() {
+  const parts = [];
+  const n = 9;
+  for (let i = 0; i < n; i++) {
+    const a = (i / n) * Math.PI * 2 + (i % 2) * 0.25;
+    const g = new THREE.BoxGeometry(1, 0.05, 0.3, 5, 1, 1);
+    const pos = g.attributes.position;
+    for (let k = 0; k < pos.count; k++) {
+      const x = pos.getX(k) + 0.5; // 0 at the crown, 1 at the tip
+      pos.setXYZ(k, x, pos.getY(k) + 0.3 * x - 0.85 * x * x + (i % 3) * 0.06, pos.getZ(k) * (1.2 - 0.9 * x));
+    }
+    g.rotateY(-a);
+    parts.push(g.toNonIndexed());
+  }
+  const crown = new THREE.IcosahedronGeometry(0.14, 0).toNonIndexed();
+  crown.deleteAttribute('uv');
+  for (const p of parts) p.deleteAttribute('uv');
+  const geo = mergeGeometries([...parts, crown]);
+  geo.computeVertexNormals();
+  return shade(geo, 0.55, 1.08, -0.6, 0.2, 11);
+}
+
 function buildTrees(L, group) {
   const theme = L.theme, trees = L.trees;
   const canopyMat = enhance(new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true }), { sway: 0.55, snow: true, see: true });
@@ -229,9 +274,10 @@ function buildTrees(L, group) {
     lobe: [lobeCanopy(1), lobeCanopy(2), lobeCanopy(3)].map((g) => new THREE.InstancedMesh(g, canopyMat, trees.length)),
     willow: new THREE.InstancedMesh(willowCanopy(), canopyMat, trees.length),
     pine: new THREE.InstancedMesh(pineCanopy(), pineMat, trees.length),
+    palm: new THREE.InstancedMesh(palmCanopy(), pineMat, trees.length),
     trunk: new THREE.InstancedMesh(trunkGeo, enhance(new THREE.MeshLambertMaterial(), { see: true }), trees.length),
   };
-  const all = [...meshes.lobe, meshes.willow, meshes.pine, meshes.trunk];
+  const all = [...meshes.lobe, meshes.willow, meshes.pine, meshes.palm, meshes.trunk];
   for (const m of all) { m.count = 0; m.castShadow = true; m.receiveShadow = true; }
   const mat = new THREE.Matrix4(), q = new THREE.Quaternion(), p = new THREE.Vector3(), s = new THREE.Vector3(), up = new THREE.Vector3(0, 1, 0);
   const put = (mesh, x, y, z, sx, sy, sz, yaw, color) => {
@@ -242,11 +288,13 @@ function buildTrees(L, group) {
   for (const t of trees) {
     const y = groundHeight(t.x, t.z), yaw = t.tint * 6.283;
     const tint = (c) => _c.set(c).multiplyScalar(0.9 + t.tint * 0.2).getHex();
-    const trunkTop = t.kind === 'pine' ? t.h * 0.55 : (t.bottom + t.h) / 2;
-    const bark = t.kind === 'birch' ? '#ece7dc' : t.kind === 'pine' ? theme.pineTrunk : theme.trunk;
+    const trunkTop = t.kind === 'pine' ? t.h * 0.55 : t.kind === 'palm' ? t.h - 0.1 : (t.bottom + t.h) / 2;
+    const bark = t.kind === 'birch' ? '#ece7dc' : t.kind === 'pine' ? theme.pineTrunk : t.kind === 'palm' ? (theme.palmTrunk ?? '#9c8a68') : theme.trunk;
     put(meshes.trunk, t.x, y - 0.3, t.z, t.trunkR, trunkTop + 0.3, t.trunkR, yaw, bark);
     const ry = (t.h - t.bottom) / 2;
-    if (t.kind === 'pine') {
+    if (t.kind === 'palm') {
+      put(meshes.palm, t.x, y + t.h - 0.15, t.z, t.r, t.r, t.r, yaw, tint(t.color));
+    } else if (t.kind === 'pine') {
       put(meshes.pine, t.x, y + t.bottom, t.z, t.r * 0.62, t.h - t.bottom, t.r * 0.62, yaw, tint(t.color));
     } else if (t.kind === 'willow') {
       put(meshes.willow, t.x, y + t.bottom + ry, t.z, t.r, ry, t.r, yaw, tint(t.color));
@@ -391,6 +439,19 @@ export function buildScenery(L, world, group) {
   }
   for (const f of L.fences) {
     const len = Math.hypot(f.bx - f.ax, f.bz - f.az), ang = Math.atan2(f.bz - f.az, f.bx - f.ax);
+    if (f.kind === 'iron') {
+      // black railings with spear tops, on a low stone curb
+      const iron = '#1d1e22', n = Math.max(1, Math.round(len / 0.32));
+      const mid = { x: (f.ax + f.bx) / 2, z: (f.az + f.bz) / 2 }, gy = G(mid.x, mid.z);
+      M.flat.put('box', mid.x, gy + 0.12, mid.z, len, 0.3, 0.42, '#b9b2a6', -ang);
+      for (const ry of [0.42, f.h - 0.12]) M.detail.put('box', mid.x, gy + ry, mid.z, len, 0.06, 0.06, iron, -ang);
+      for (let k = 0; k <= n; k++) {
+        const x = f.ax + ((f.bx - f.ax) * k) / n, z = f.az + ((f.bz - f.az) * k) / n;
+        M.detail.put('box', x, gy + f.h / 2 + 0.15, z, 0.035, f.h - 0.1, 0.035, iron, -ang);
+        if (k % 3 === 0) M.detail.put('cone', x, gy + f.h + 0.17, z, 0.09, 0.2, 0.09, '#b08a3a');
+      }
+      continue;
+    }
     const n = Math.max(1, Math.ceil(len / 2.4)), picket = f.kind === 'picket';
     const wood = picket ? '#f4f2ec' : '#a5825c', post = picket ? '#ffffff' : '#7a5c3e';
     for (let k = 0; k <= n; k++) {
@@ -423,6 +484,17 @@ export function buildScenery(L, world, group) {
 
   // ---- decks, docks, boardwalks and bridges
   for (const p of L.platforms) {
+    if (p.kind === 'stone') {
+      // an old stone footbridge: one slab, a shallow arch beneath and low parapets
+      const stone = '#bdb5a5', dark = '#9c9384';
+      M.flat.local(p, 'box', 0, p.top - 0.2, 0, p.hu * 2, 0.4, p.hv * 2, stone);
+      M.flat.local(p, 'box', 0, p.top - 0.75, 0, p.hu * 1.4, 0.7, p.hv * 2 - 0.2, dark);
+      for (const s of [-1, 1]) {
+        M.flat.local(p, 'box', 0, p.top + 0.3, s * (p.hv - 0.18), p.hu * 2, 0.6, 0.36, stone);
+        M.flat.local(p, 'box', 0, p.top + 0.63, s * (p.hv - 0.18), p.hu * 2 + 0.1, 0.08, 0.44, dark);
+      }
+      continue;
+    }
     const wood = p.kind === 'bridge' ? '#8a6748' : WOOD, n = Math.round((p.hu * 2) / 0.32), plank = (p.hu * 2) / n;
     for (let k = 0; k < n; k++) {
       M.detail.local(p, 'box', -p.hu + (k + 0.5) * plank, p.top - 0.05, 0, plank - 0.04, 0.1, p.hv * 2, k % 3 === 0 ? '#93704b' : wood);
@@ -445,7 +517,7 @@ export function buildScenery(L, world, group) {
 
   // ---- park furniture and odds and ends
   for (const p of L.props) {
-    const y = G(p.x, p.z), f = frame(p);
+    const y = p.y ?? G(p.x, p.z), f = frame(p);
     switch (p.type) {
       case 'bench':
         M.detail.local(f, 'box', 0, y + 0.45, 0, 1.8, 0.07, 0.42, WOOD);
@@ -537,6 +609,103 @@ export function buildScenery(L, world, group) {
         M.detail.put('cyl', p.x, y + 1.3 * s, p.z, 0.56 * s, 0.12 * s, 0.56 * s, p.color ?? '#d33a2c');
         M.detail.put('cyl', p.x, y + 1.8 * s, p.z, 0.5 * s, 0.04 * s, 0.5 * s, '#1d1e22');
         M.detail.put('cyl', p.x, y + 1.96 * s, p.z, 0.32 * s, 0.32 * s, 0.32 * s, '#1d1e22');
+        break;
+      }
+      case 'steeple': {
+        // a square bell tower capped with a slate spire and a gilt cross
+        const h = p.h ?? 20, w = p.w ?? 4, towerH = h * 0.58;
+        M.walls.put('box', p.x, y + towerH / 2, p.z, w, towerH, w, '#f4f1ea', -p.ang);
+        M.detail.put('box', p.x, y + towerH - 0.2, p.z, w + 0.3, 0.4, w + 0.3, '#e2ddd0', -p.ang);
+        for (const [du, dw] of [[0, 1], [0, -1], [1, 0], [-1, 0]]) {
+          M.detail.put('box', p.x + (du * w * Math.cos(p.ang) - dw * w * Math.sin(p.ang)) * 0.501, y + towerH * 0.78, p.z + (du * w * Math.sin(p.ang) + dw * w * Math.cos(p.ang)) * 0.501,
+            du ? 0.06 : w * 0.34, w * 0.5, dw ? 0.06 : w * 0.34, '#2f3640', -p.ang);
+        }
+        M.roofs.put('cone6', p.x, y + towerH + (h - towerH) / 2, p.z, w * 1.05, h - towerH, w * 1.05, '#3f4650', -p.ang);
+        M.detail.put('box', p.x, y + h + 0.6, p.z, 0.12, 1.2, 0.12, '#c9a23a');
+        M.detail.put('box', p.x, y + h + 0.85, p.z, 0.6, 0.12, 0.12, '#c9a23a', -p.ang);
+        break;
+      }
+      case 'statue': {
+        // an equestrian bronze on a granite plinth
+        const bronze = '#3d4a3f';
+        M.flat.put('box', p.x, y + 1.3, p.z, 3.2, 2.6, 2.2, '#b9b2a6', -p.ang);
+        M.flat.put('box', p.x, y + 2.68, p.z, 3.5, 0.16, 2.5, '#a39c90', -p.ang);
+        M.flat.local(f, 'box', 0.1, y + 3.55, 0, 2.0, 0.8, 0.7, bronze, 0, 0.45);
+        M.flat.local(f, 'box', 0.95, y + 4.25, 0, 0.5, 0.9, 0.4, bronze, 0, 0.9);
+        M.flat.local(f, 'box', 1.25, y + 4.55, 0, 0.6, 0.32, 0.3, bronze);
+        for (const w of [-0.25, 0.25]) M.flat.local(f, 'box', -0.75, y + 3.1, w, 0.16, 0.9, 0.14, bronze, 0, -0.2);
+        M.flat.local(f, 'box', -0.05, y + 4.35, 0, 0.36, 0.9, 0.4, bronze);
+        M.flat.local(f, 'smooth', -0.02, y + 4.95, 0, 0.32, 0.36, 0.32, bronze);
+        M.flat.local(f, 'box', 0.15, y + 5.1, 0, 0.08, 0.6, 0.08, bronze, 0, -0.6);
+        break;
+      }
+      case 'cafe':
+      case 'market': {
+        // an open pavilion: columns and a striped (cafe) or slate (market) roof
+        const cafe = p.type === 'cafe', top = y + 2.8;
+        const n = Math.max(1, Math.round(p.hu / 3.5));
+        for (let k = 0; k <= n; k++) {
+          const u = -p.hu + (k * p.hu * 2) / n;
+          for (const w of [-p.hv, p.hv]) M.detail.local(f, 'box', u, y + 1.4, w, 0.24, 2.8, 0.24, cafe ? '#f4f1ea' : '#7a6a58');
+        }
+        M.detail.local(f, 'box', 0, top, 0, p.hu * 2 + 0.4, 0.3, p.hv * 2 + 0.4, cafe ? '#2f6b3a' : '#5a4a3c');
+        if (cafe) {
+          const stripes = Math.round((p.hu * 2) / 0.9);
+          for (const s of [-1, 1]) {
+            for (let k = 0; k < stripes; k++) {
+              const u = -p.hu + (k + 0.5) * ((p.hu * 2) / stripes);
+              M.roofs.local(f, 'box', u, top + 0.55, s * p.hv * 0.5, (p.hu * 2) / stripes + 0.02, 0.1, p.hv + 0.4, k % 2 ? '#2f6b3a' : '#f4f1ea', s * 0.42);
+            }
+          }
+          for (let k = 0; k < 6; k++) {
+            const u = -p.hu + 1.5 + (k % 3) * (p.hu - 1.5), w = k < 3 ? -p.hv * 0.45 : p.hv * 0.45;
+            M.detail.local(f, 'cyl', u, y + 0.75, w, 0.9, 0.06, 0.9, '#f4f1ea');
+            M.detail.local(f, 'cyl', u, y + 0.37, w, 0.08, 0.74, 0.08, '#2b2b2b');
+          }
+        } else {
+          roof(M, { ...f, hu: p.hu + 0.4, hv: p.hv + 0.4, base: top + 0.1, wallH: 0, roofH: 1.6, roof: 'gable', roofColor: '#5b6470', trim: '#e8e2d6' }, '#7a6a58');
+          for (let k = 0; k < Math.round(p.hu / 2); k++) {
+            const u = -p.hu + 2 + k * 4;
+            if (u > p.hu - 1) break;
+            M.detail.local(f, 'box', u, y + 0.5, 0, 2.6, 1.0, 1.4, ['#c9a24a', '#a8472f', '#5a8a3a', '#d9b45a'][k % 4]);
+          }
+        }
+        break;
+      }
+      case 'steamboat': {
+        // a white sternwheeler with twin stacks and a red paddle wheel
+        const white = '#f4f1ea', trim = '#c23b2f';
+        M.walls.local(f, 'box', 0, y + 0.6, 0, 30, 2.2, 9, white);
+        M.detail.local(f, 'box', 0, y + 1.75, 0, 30.4, 0.18, 9.4, trim);
+        M.walls.local(f, 'box', -1, y + 3.1, 0, 24, 2.4, 8, white);
+        M.walls.local(f, 'box', -2, y + 5.4, 0, 18, 2.2, 7, white);
+        for (const yy of [y + 4.35, y + 6.55]) M.detail.local(f, 'box', -1, yy, 0, 24.4, 0.15, 8.4, trim);
+        M.walls.local(f, 'box', 3, y + 7.4, 0, 5, 1.8, 4, white);
+        M.roofs.local(f, 'box', 3, y + 8.4, 0, 5.6, 0.2, 4.6, trim);
+        for (const w of [-2.2, 2.2]) {
+          M.detail.local(f, 'cyl', 9, y + 9.5, w, 0.9, 7, 0.9, '#1d1e22');
+          M.detail.local(f, 'cyl', 9, y + 13.1, w, 1.4, 0.5, 1.4, '#c9a23a');
+        }
+        M.detail.local(f, 'cyl', -16.5, y + 2.4, 0, 5.2, 7.6, 5.2, trim, Math.PI / 2);
+        for (let k = 0; k < 8; k++) M.detail.local(f, 'box', -16.5, y + 2.4, 0, 0.3, 5.6, 7.8, '#8a2a22', (k / 8) * Math.PI);
+        break;
+      }
+      case 'streetcar': {
+        const red = '#c8102e';
+        M.walls.local(f, 'box', 0, y + 1.6, 0, 12.4, 2.4, 2.7, red);
+        M.glass.local(f, 'box', 0, y + 2.2, 0, 11.6, 0.8, 2.74, '#ffffff');
+        M.roofs.local(f, 'box', 0, y + 3.0, 0, 12.6, 0.4, 2.5, '#e8dcc0');
+        M.detail.local(f, 'box', 0, y + 0.35, 0, 11, 0.5, 2.2, '#2b2b2b');
+        M.detail.local(f, 'box', 0, y + 3.9, 0, 0.1, 1.6, 0.1, '#2b2b2b', 0, 0.8);
+        break;
+      }
+      case 'beads': {
+        // Mardi Gras beads draped over a branch
+        const colors = ['#6a2c91', '#1f8a3b', '#e0b21c'];
+        for (let k = 0; k < (p.n ?? 5); k++) {
+          const a = rng() * 6.3, d = rng() * (p.spread ?? 2.5), s = 0.16 + rng() * 0.12;
+          M.detail.put('torus', p.x + Math.cos(a) * d, y - rng() * 1.2, p.z + Math.sin(a) * d, s, s * 1.7, s, colors[k % 3], a);
+        }
         break;
       }
       case 'lighthouse': {

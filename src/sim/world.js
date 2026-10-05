@@ -32,6 +32,7 @@ export class World {
     for (const h of layout.houses) {
       this.addRect({ t: 'house', ...h, e: 0.25, keep: 0.5, name: 'house' });
       if (h.porch) this.addPorch(h);
+      if (h.balcony) this.addBalconies(h);
     }
     for (const car of layout.cars) {
       const y0 = ground(car.cx, car.cz);
@@ -86,10 +87,25 @@ export class World {
       cos: Math.cos(ang), sin: Math.sin(ang), y0: Math.min(ga, gb, gc) - 0.6, y1: Math.max(ga, gb, gc) + height, ...props });
   }
 
+  // Iron balconies (or deep galleries on columns) across the front of upper floors.
+  addBalconies(h) {
+    const deep = h.balcony === 'gallery' ? 2.6 : 1.1, w = h.front * (h.hv + deep / 2);
+    const cx = h.cx - w * h.sin, cz = h.cz + w * h.cos;
+    for (let floor = 1; floor < h.stories; floor++) {
+      const y = h.base + floor * 2.6 + 0.15;
+      this.addRect({ t: 'box', cx, cz, hu: h.hu, hv: deep / 2, cos: h.cos, sin: h.sin, y0: y - 0.2, y1: y + 1.0, e: 0.3, keep: 0.55, name: 'rail' });
+    }
+    if (h.balcony !== 'gallery') return;
+    const pw = h.front * (h.hv + deep - 0.12);
+    for (let u = -h.hu + 0.2; u <= h.hu; u += Math.max(2.5, (h.hu * 2 - 0.4) / Math.round((h.hu * 2) / 3))) {
+      this.addPost(h.cx + u * h.cos - pw * h.sin, h.cz + u * h.sin + pw * h.cos, 0.08, 2.75, 'pole');
+    }
+  }
+
   addPorch(h) {
     const p = h.porch, w = h.front * (h.hv + p.depth / 2);
     const cx = h.cx + p.u * h.cos - w * h.sin, cz = h.cz + p.u * h.sin + w * h.cos;
-    this.addRect({ t: 'box', cx, cz, hu: p.width / 2, hv: p.depth / 2, cos: h.cos, sin: h.sin,
+    this.addRect({ t: 'box', porch: true, front: h.front, cx, cz, hu: p.width / 2, hv: p.depth / 2, cos: h.cos, sin: h.sin,
       y0: h.base + 2.3, y1: h.base + 2.62, e: 0.25, keep: 0.5, name: 'house' });
     for (const s of [-1, 1]) {
       const u = p.u + s * (p.width / 2 - 0.15), pw = h.front * (h.hv + p.depth - 0.15);
@@ -123,7 +139,7 @@ export class World {
   }
 
   addProp(p) {
-    const y = ground(p.x, p.z), cos = Math.cos(p.ang), sin = Math.sin(p.ang);
+    const y = p.y ?? ground(p.x, p.z), cos = Math.cos(p.ang), sin = Math.sin(p.ang);
     const box = (hu, hv, y0, y1, name, du = 0, dw = 0, extra) => this.addRect({
       t: 'box', cx: p.x + du * cos - dw * sin, cz: p.z + du * sin + dw * cos, hu, hv, cos, sin,
       y0: y + y0, y1: y + y1, e: 0.3, keep: 0.55, name, ...extra,
@@ -145,6 +161,19 @@ export class World {
         break;
       }
       case 'lighthouse': this.addPost(p.x, p.z, 2.1, (p.h ?? 14) + 3, 'house'); break;
+      case 'steeple': this.addPost(p.x, p.z, (p.w ?? 4) * 0.55, p.h ?? 20, 'house'); break;
+      case 'statue': this.addPost(p.x, p.z, 1.5, 5.2, 'rock'); break;
+      case 'streetcar': box(6.2, 1.35, -0.5, 3.4, 'car'); break;
+      case 'steamboat': box(15, 4.6, -2, 9, 'house'); break;
+      case 'cafe':
+      case 'market': {
+        this.addRect({ t: 'house', open: true, cx: p.x, cz: p.z, hu: p.hu + 0.4, hv: p.hv + 0.4, cos, sin,
+          base: y + 2.8, wallH: 0, roofH: 1.4, roof: 'gable', e: 0.25, keep: 0.5, name: 'house' });
+        for (let u = -p.hu; u <= p.hu + 0.01; u += (p.hu * 2) / Math.max(1, Math.round(p.hu / 3.5))) {
+          for (const w of [-p.hv, p.hv]) this.addPost(p.x + u * cos - w * sin, p.z + u * sin + w * cos, 0.12, 2.8, 'pole');
+        }
+        break;
+      }
       case 'hydrant': this.addPost(p.x, p.z, 0.14, 0.8, 'mailbox'); break;
       case 'bin': this.addPost(p.x, p.z, 0.3, 1.0, 'mailbox'); break;
       case 'hoop':
@@ -327,9 +356,10 @@ export class World {
 
   // Nudge a lie out of anything solid so the next throw has room to be released.
   relief(x, z) {
-    for (let pass = 0; pass < 4; pass++) {
+    const sweep = (porchOnly) => {
       let moved = false;
       for (const c of this.near(x, z)) {
+        if (porchOnly && !c.porch) continue;
         if (c.t === 'cyl' || c.t === 'sphere') {
           const dx = x - c.x, dz = z - c.z, d = Math.hypot(dx, dz), min = c.r + 0.55;
           if (d < min) {
@@ -342,12 +372,29 @@ export class World {
           const pu = c.hu + 0.6 - Math.abs(u), pw = c.hv + 0.6 - Math.abs(w);
           if (pu > 0 && pw > 0) {
             if (pu < pw) u = Math.sign(u || 1) * (c.hu + 0.6);
-            else w = Math.sign(w || 1) * (c.hv + 0.6);
+            // a porch roof backs onto its house, so it only ever pushes out the front
+            else w = c.porch ? c.front * (c.hv + 0.6) : Math.sign(w || 1) * (c.hv + 0.6);
             x = c.cx + u * c.cos - w * c.sin; z = c.cz + u * c.sin + w * c.cos; moved = true;
           }
         }
       }
-      if (!moved) break;
+      return moved;
+    };
+    for (let pass = 0; pass < 4 && sweep(false); pass++);
+    // backstop: never hand back a lie inside a closed building. Step out of it the
+    // shortest way, or the next shortest if that lands in a neighbouring building.
+    const h = this.houseAt(x, z);
+    if (h) {
+      const dx = x - h.cx, dz = z - h.cz;
+      const u = dx * h.cos + dz * h.sin, w = -dx * h.sin + dz * h.cos;
+      const su = Math.sign(u || 1), sw = Math.sign(w || 1);
+      const exits = [[su * (h.hu + 0.6), w], [u, sw * (h.hv + 0.6)], [-su * (h.hu + 0.6), w], [u, -sw * (h.hv + 0.6)]]
+        .sort((a, b) => Math.abs(a[0] - u) + Math.abs(a[1] - w) - Math.abs(b[0] - u) - Math.abs(b[1] - w));
+      for (const [eu, ew] of exits) {
+        x = h.cx + eu * h.cos - ew * h.sin; z = h.cz + eu * h.sin + ew * h.cos;
+        if (!this.houseAt(x, z)) break;
+      }
+      sweep(true);
     }
     return { x, z };
   }

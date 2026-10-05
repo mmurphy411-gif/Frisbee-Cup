@@ -8,6 +8,8 @@ import { DiscMesh, Tracer, Preview, makeMarker } from './render/actors.js';
 import { Avatar, playerLook } from './render/avatar.js';
 import { Controls } from './input.js';
 import { feet, scoreName, relPar } from './hud.js';
+import { recordThrow, sampleThrow, finishThrow, replayState, advanceReplay } from './sim/ghost.js';
+import { addRounds } from './records.js';
 
 const DEG = Math.PI / 180;
 const STEP = 1 / 240;
@@ -16,6 +18,7 @@ const STYLE_ORDER = ['bh', 'fh', 'oh'];
 const OB_TEXT = {
   roof: 'On the roof', pond: 'In the pond', lake: 'In the lake', creek: 'In the creek', pool: 'In the pool', bounds: 'Off the course',
 };
+const GHOST_COLOR = '#c9d6ea';
 const DUST = { grass: '#9c8f62', road: '#b9b5ad', sand: '#e6d4a0', deck: '#b08a5e' };
 const _v = new THREE.Vector3();
 const _wind = { x: 0, z: 0 };
@@ -41,8 +44,13 @@ export class Game {
       aim: this.aim,
       onChange: () => { this.aimDirty = true; },
       onKey: (code, down) => this.key(code, down),
-      onSwingStart: () => { this.pull = 0; },
-      onSwing: (info) => { this.pull = info.pull; this.hud.swingPull(info.pull, info.forward); },
+      onSwingStart: () => { this.pull = 0; this.chargeStep = 0; },
+      onSwing: (info) => {
+        this.pull = info.pull;
+        this.hud.swingPull(info.pull, info.forward);
+        const step = Math.min(10, Math.floor(info.pull * 10));
+        if (step > this.chargeStep) { this.chargeStep = step; this.audio.charge(step); }
+      },
       onThrow: (result) => this.throw(result),
       onCancel: () => { this.pull = 0; this.hud.swingIdle(); },
     });
@@ -64,6 +72,8 @@ export class Game {
   // ----------------------------------------------------------------- round
   start(config) {
     this.audio.unlock();
+    this.audio.music.play(this.layout.theme.music ?? 'fairway');
+    this.audio.ambience(this.layout.theme.ambience ?? 'park');
     for (const p of this.players) {
       this.scene.remove(p.marker);
       p.avatar.dispose();
@@ -73,11 +83,18 @@ export class Game {
     this.sky.setConditions(config.weather, config.time);
     this.windCfg = config.wind;
     this.wind = makeWind(config.wind.speed, config.wind.dir, config.wind.gust);
-    this.players = config.players.map((p, i) => ({
+    // what a ghost needs to put a challenger in exactly the same conditions
+    this.conditions = { weather: config.weather, time: config.time, wind: { ...config.wind } };
+    const roster = [...config.players];
+    const g = config.ghost;
+    if (g) roster.push({ name: `${g.name}'s ghost`, color: GHOST_COLOR, hand: g.hand, ghost: g });
+    this.players = roster.map((p, i) => ({
       ...p, scores: [], strokes: 0, lie: { x: 0, z: 0 }, holed: false, teed: false, order: i, style: 'bh',
+      rec: p.ghost ? null : { holes: [] }, throwIdx: 0,
       marker: makeMarker(this.scene, p.color),
       avatar: new Avatar(this.scene, playerLook(i, p, config.weather)),
     }));
+    for (const p of this.players) if (p.ghost) p.avatar.ghostly();
     this.hud.showGame(true);
     this.hud.hideScorecard();
     this.holeIndex = 0;
@@ -95,7 +112,8 @@ export class Game {
         .forEach((p, i) => { p.order = i; });
     }
     for (const p of this.players) {
-      p.strokes = 0; p.holed = false; p.teed = false;
+      p.strokes = 0; p.holed = false; p.teed = false; p.throwIdx = 0;
+      if (p.rec) p.rec.holes[this.holeIndex] = { throws: [], score: 0, end: null };
       p.lie = { x: hole.tee.x, z: hole.tee.z };
       p.marker.visible = false;
     }
@@ -106,6 +124,7 @@ export class Game {
     this.preview.hide(); this.disc.hide(); this.tracer.hide();
     this.state = 'intro';
     this.timer = 3.9;
+    this.audio.music.jingle('hole');
     this.rig.set('flyover', { route: hole.route, duration: 3.7 });
     this.rig.cut();
   }
@@ -128,6 +147,7 @@ export class Game {
     this.disc.hide(); this.tracer.hide();
     for (const p of this.players) this.placeMarker(p);
     next.marker.visible = false;
+    if (next.ghost) return this.ghostTurn(next);
     if (next.teed && this.distToBasket(next) < TAP_IN) {
       next.strokes++;
       return this.holeOut(next, 'Tap-in');
@@ -152,11 +172,15 @@ export class Game {
     // off the tee of a dogleg, start out aimed down the fairway rather than at the pin
     const target = !p.teed && hole.route.length > 2 ? hole.route[1] : hole.basket;
     aim.yaw = Math.atan2(target.z - p.lie.z, target.x - p.lie.x);
-    aim.disc = d > 78 ? 0 : d > 52 ? 1 : 2;
+    // a climb plays long: pick the disc for the effective distance, and loft up the slope
+    const y0 = this.standY(p.lie.x, p.lie.z);
+    const dEff = d + 2.5 * Math.max(0, this.basket.y - y0);
+    const slope = Math.atan2(this.standY(target.x, target.z) - y0, Math.hypot(target.x - p.lie.x, target.z - p.lie.z)) / DEG;
+    aim.disc = dEff > 78 ? 0 : dEff > 52 ? 1 : 2;
     aim.mode = d > 34 ? 0 : d > 14 ? 1 : 2;
     aim.style = p.style === 'oh' ? 'bh' : p.style;
     aim.hyzer = 0; aim.nose = 0;
-    aim.loft = (aim.mode === 2 ? 10 : 8) * DEG;
+    aim.loft = (aim.mode === 2 ? 10 + Math.min(10, Math.max(0, slope * 0.8)) : 8 + Math.min(16, Math.max(0, slope))) * DEG;
     this.aimDirty = true;
   }
 
@@ -196,6 +220,8 @@ export class Game {
     this.flight = s;
     this.eventIdx = 0;
     this.acc = 0;
+    this.recording = recordThrow(p.lie, this.aim, s);
+    p.rec.holes[this.holeIndex].throws.push(this.recording);
     p.strokes++; p.teed = true; p.style = this.aim.style;
     this.state = 'flight';
     this.disc.setColor(p.color);
@@ -209,22 +235,27 @@ export class Game {
 
   updateFlight(dt) {
     const s = this.flight;
-    this.acc += dt;
-    let n = 0;
-    while (this.acc >= STEP && n++ < 24 && s.mode !== 'rest') {
-      stepDisc(s, STEP, this.env);
-      this.acc -= STEP;
+    if (s.replay) advanceReplay(s, dt);
+    else {
+      this.acc += dt;
+      let n = 0;
+      while (this.acc >= STEP && n++ < 24 && s.mode !== 'rest') {
+        stepDisc(s, STEP, this.env);
+        if (this.recording) sampleThrow(this.recording, s);
+        this.acc -= STEP;
+      }
     }
     for (; this.eventIdx < s.events.length; this.eventIdx++) this.react(s.events[this.eventIdx]);
     this.disc.update(s, dt, this.camera);
     if (this.frame % 2 === 0 && s.mode !== 'rest') this.tracer.push(s.p);
+    this.audio.whoosh(s.mode === 'fly' ? Math.hypot(s.v.x, s.v.y, s.v.z) : 0);
     if (s.mode === 'rest') this.landed();
   }
 
   // Sound, words and particles for each thing that happens to the disc.
   react(ev) {
     const fx = this.effects, foliage = this.layout.theme.foliage;
-    this.audio.play(ev.type, (ev.speed || 8) / 14);
+    this.audio.play(ev.type, (ev.speed || 8) / 14, ev);
     switch (ev.type) {
       case 'land':
       case 'skip':
@@ -271,15 +302,18 @@ export class Game {
   landed() {
     const s = this.flight, p = this.current, hole = this.hole;
     this.state = 'settle';
+    this.audio.stopWhoosh();
+    if (this.recording) { finishThrow(this.recording, s); this.recording = null; }
     this.timer = s.holed ? 2.4 : 1.9;
     this.rig.set('rest', { x: s.p.x, y: s.p.y, z: s.p.z, yaw: this.aim.yaw });
     if (s.holed) {
       this.hud.toast(`${scoreName(p.strokes, hole.par)}<small>${p.name} holes out in ${p.strokes}</small>`, 2400);
-      this.audio.play(p.strokes <= hole.par ? 'good' : 'tick');
+      const diff = p.strokes - hole.par;
+      this.audio.music.jingle(p.strokes === 1 ? 'ace' : diff <= -2 ? 'eagle' : diff === -1 ? 'birdie' : diff === 0 ? 'par' : diff === 1 ? 'bogey' : 'double');
       if (p.strokes < hole.par) this.effects.confetti(this.basket.x, this.basket.y, this.basket.z);
     } else if (s.ob) {
-      this.hud.toast(`Out of bounds<small>${OB_TEXT[s.ob]} · one penalty throw</small>`, 1900);
-      this.audio.play('bad');
+      this.hud.toast(`Out of bounds<small>${OB_TEXT[s.ob] ?? `In the ${s.ob}`} · one penalty throw</small>`, 1900);
+      this.audio.music.jingle('ob');
     } else {
       const left = Math.hypot(this.basket.x - s.p.x, this.basket.z - s.p.z);
       const flew = Math.hypot(s.p.x - s.start.x, s.p.z - s.start.z);
@@ -297,6 +331,9 @@ export class Game {
     } else {
       p.lie = this.world.relief(s.p.x, s.p.z);
     }
+    // a ghost always plays its next throw from exactly where it played it before
+    const nextThrow = p.ghost?.holes[this.holeIndex]?.throws[p.throwIdx];
+    if (nextThrow) p.lie = { ...nextThrow.from };
     if (p.strokes >= hole.par + 5) return this.holeOut(p, 'Picked up');
     this.nextTurn();
   }
@@ -304,6 +341,7 @@ export class Game {
   holeOut(p, label) {
     p.holed = true;
     p.scores[this.holeIndex] = p.strokes;
+    if (p.rec) Object.assign(p.rec.holes[this.holeIndex], { score: p.strokes, end: label ?? null });
     p.marker.visible = false;
     if (label) {
       this.hud.toast(`${label}<small>${p.name} takes ${p.strokes} · ${scoreName(p.strokes, this.hole.par)}</small>`, 1700);
@@ -319,15 +357,13 @@ export class Game {
     this.state = 'card';
     for (const p of this.players) p.avatar.hide();
     this.preview.hide();
-    let title = `${this.layout.name} · Hole ${this.hole.number} complete`;
+    let title = `${this.layout.name} · Hole ${this.hole.number} complete`, notes = [];
     if (last) {
-      const ranked = [...this.players].sort((a, b) => this.totalFor(a) - this.totalFor(b));
-      const tie = ranked.length > 1 && this.totalFor(ranked[0]) === this.totalFor(ranked[1]);
-      title = ranked.length === 1 ? `${this.layout.name} complete · ${relPar(this.totalFor(ranked[0]))}` : tie ? "It's a tie!" : `${ranked[0].name} wins the Frisbee Cup!`;
-      this.audio.play('good');
+      ({ title, notes } = this.finishRound());
+      this.audio.music.jingle('round');
     }
     this.hud.showScorecard({
-      holes: this.layout.holes, players: this.players, played: true, title,
+      holes: this.layout.holes, players: this.players, played: true, title, notes,
       button: last ? 'New round' : 'Next hole',
       onAction: () => {
         this.hud.hideScorecard();
@@ -338,8 +374,75 @@ export class Game {
     });
   }
 
+  // Post the humans' rounds to the course board and sum up the round.
+  finishRound() {
+    const L = this.layout, humans = this.players.filter((p) => !p.ghost), ghost = this.players.find((p) => p.ghost);
+    const strokes = (p) => p.scores.reduce((a, s) => a + s, 0);
+    const results = addRounds(L.id, humans.map((p) => ({
+      ref: p, name: p.name, color: p.color, hand: p.hand, strokes: strokes(p), toPar: this.totalFor(p),
+      scores: p.scores, conditions: this.conditions, holes: p.rec.holes,
+    })));
+    const notes = results.map((r) => {
+      const p = r.ref, score = `${strokes(p)} (${relPar(this.totalFor(p))})`;
+      if (r.record) return `New course record! ${p.name} shot ${score}, and their ghost now haunts ${L.name}.`;
+      if (r.place) return `${p.name}'s ${score} is #${r.place} on the ${L.name} board.`;
+      return null;
+    }).filter(Boolean);
+    const ranked = [...humans].sort((a, b) => this.totalFor(a) - this.totalFor(b));
+    const best = ranked[0];
+    let title;
+    if (ghost) {
+      const d = this.totalFor(best) - this.totalFor(ghost);
+      const who = humans.length === 1 ? 'You' : best.name;
+      title = d < 0 ? `${who} beat ${ghost.name}!` : d === 0 ? `Dead heat with ${ghost.name}` : `${ghost.name} wins by ${d}`;
+    } else if (ranked.length === 1) {
+      title = `${L.name} complete · ${relPar(this.totalFor(best))}`;
+    } else {
+      const tie = this.totalFor(ranked[0]) === this.totalFor(ranked[1]);
+      title = tie ? "It's a tie!" : `${best.name} wins the Frisbee Cup!`;
+    }
+    return { title, notes };
+  }
+
+  // The ghost lines up its next recorded throw, or finishes the hole the way it did.
+  ghostTurn(p) {
+    const hole = p.ghost.holes[this.holeIndex];
+    const next = hole?.throws[p.throwIdx];
+    if (!next) {
+      p.strokes = hole ? hole.score : p.strokes;
+      return this.holeOut(p, hole?.end || 'Holes out');
+    }
+    p.lie = { ...next.from };
+    Object.assign(this.aim, next.aim);
+    this.aimDirty = false;
+    this.preview.hide();
+    this.state = 'ghost';
+    this.timer = 1.3;
+    this.hud.swingIdle();
+    this.hud.toast(`${p.name}<small>throw ${p.strokes + 1}</small>`, 1300);
+    this.rig.set('aim', {});
+    this.feedCamera();
+  }
+
+  ghostThrow() {
+    const p = this.current, rec = p.ghost.holes[this.holeIndex].throws[p.throwIdx++];
+    this.flight = replayState(rec);
+    this.eventIdx = 0;
+    this.recording = null;
+    p.strokes++; p.teed = true; p.style = rec.aim.style;
+    this.state = 'flight';
+    this.disc.setColor(p.color);
+    this.tracer.reset(p.color);
+    p.avatar.startThrow();
+    this.rig.set('chase', { state: this.flight, yaw: this.aim.yaw });
+    this.audio.play('throw', 0.8);
+  }
+
   toMenu() {
     this.state = 'menu';
+    this.audio.music.play('clubhouse');
+    this.audio.ambience(null);
+    this.audio.stopWhoosh();
     for (const p of this.players) { p.marker.visible = false; p.avatar.hide(); }
     this.disc.hide(); this.tracer.hide(); this.preview.hide();
     this.hud.showGame(false);
@@ -349,6 +452,7 @@ export class Game {
   key(code, down = true) {
     if (!down) return;
     if (code === 'KeyH') return this.hud.toggleHelp();
+    if (code === 'KeyN') return this.audio.toggleMusic();
     if (this.state === 'intro' && (code === 'Space' || code === 'Enter')) { this.timer = 0; return; }
     if (this.state === 'card' && code === 'Enter') return this.hud.scoreAction?.();
     if (this.state !== 'aim') return;
@@ -401,6 +505,11 @@ export class Game {
       if (this.aimDirty) this.updatePreview();
       this.feedCamera();
       this.focus.set(p.lie.x, this.standY(p.lie.x, p.lie.z), p.lie.z);
+    } else if (this.state === 'ghost') {
+      this.feedCamera();
+      this.focus.set(p.lie.x, this.standY(p.lie.x, p.lie.z), p.lie.z);
+      this.timer -= dt;
+      if (this.timer <= 0) this.ghostThrow();
     } else if (this.state === 'flight') {
       this.updateFlight(dt);
       this.focus.set(this.flight.p.x, this.flight.p.y, this.flight.p.z);
@@ -478,7 +587,7 @@ export class Game {
     const route = this.hole.route;
     for (const p of this.players) {
       const av = p.avatar;
-      if (p === cur && (this.state === 'aim' || flying)) {
+      if (p === cur && (this.state === 'aim' || this.state === 'ghost' || flying)) {
         const aim = this.aim, x = p.lie.x - Math.cos(aim.yaw) * 0.25, z = p.lie.z - Math.sin(aim.yaw) * 0.25;
         const ahead = { x: p.lie.x + Math.cos(aim.yaw) * 25, y: this.standY(p.lie.x, p.lie.z) + 1.4, z: p.lie.z + Math.sin(aim.yaw) * 25 };
         av.held.visible = !av.thrown;
@@ -506,7 +615,7 @@ export class Game {
     this.camera.getWorldDirection(_v);
     const viewYaw = Math.atan2(_v.z, _v.x);
     hud.setWind(this.windCfg.speed, this.windCfg.dir, viewYaw, this.weather.name);
-    hud.setPlayer(p, p.strokes + (this.state === 'aim' ? 1 : 0), relPar(this.totalFor(p)));
+    hud.setPlayer(p, p.strokes + (this.state === 'aim' || this.state === 'ghost' ? 1 : 0), relPar(this.totalFor(p)));
     const flying = this.state === 'flight' || this.state === 'settle';
     const from = flying ? this.flight.p : p.lie;
     const dist = Math.hypot(this.basket.x - from.x, this.basket.z - from.z);
