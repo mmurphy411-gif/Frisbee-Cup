@@ -6,6 +6,8 @@ import { groundHeight, groundNormal } from './terrain.js';
 import { STYLES } from './discs.js';
 import { roofHeight } from './world.js';
 
+const CLIFF = 3; // metres: a drop this far below both ends of a throw is no place to play from
+
 export const G = 9.81;
 export const DISC_RADIUS = 0.105;
 const RHO = 1.2, MASS = 0.175, RADIUS = DISC_RADIUS, DIAM = 0.21;
@@ -60,14 +62,14 @@ export function createThrow(o) {
   const bank = (o.style === 'oh' ? -fadeSide * (Math.PI / 2 - o.hyzer) : fadeSide * o.hyzer) + (o.rollErr || 0);
   const cb = Math.cos(bank), sb = Math.sin(bank);
   const x = o.x + Math.cos(yaw) * 0.5, z = o.z + Math.sin(yaw) * 0.5;
-  const y = (o.y ?? groundHeight(o.x, o.z)) + st.height;
+  const y0 = o.y ?? groundHeight(o.x, o.z), y = y0 + st.height;
   return {
     disc: o.disc, mode: 'fly', t: 0, t0: o.t0 || 0,
     p: { x, y, z }, v: { x: fx * speed, y: fy * speed, z: fz * speed },
     n: { x: n0x * cb + rx * sb, y: n0y * cb, z: n0z * cb + rz * sb },
     spin: fadeSide * Math.max(25, (speed / RADIUS) * st.adv),
     px: x, py: y, pz: z,
-    start: { x: o.x, z: o.z }, lastIn: { x: o.x, z: o.z },
+    start: { x: o.x, z: o.z }, startY: y0, lastIn: { x: o.x, z: o.z }, safeIn: { x: o.x, z: o.z },
     events: [], skips: 0, holed: false, ob: null, maxH: 0, roll: null, speed0: speed,
   };
 }
@@ -81,8 +83,13 @@ export function stepDisc(s, dt, env) {
   else roll(s, dt, env);
   if (s.mode === 'rest') return;
   const ob = env.world.outOfBounds(s.p.x, s.p.z);
-  if (!ob) { s.lastIn.x = s.p.x; s.lastIn.z = s.p.z; }
-  else if (ob === 'bounds' || s.t > 30) rest(s, env);
+  if (!ob) {
+    s.lastIn.x = s.p.x; s.lastIn.z = s.p.z;
+    // Where an out-of-bounds throw is played from: fair ground that isn't down a cliff
+    // from both the thrower and the basket (the floor of a chasm, the foot of a sea wall).
+    const g = env.world.standHeight(s.p.x, s.p.z);
+    if (g > s.startY - CLIFF || (env.basket && g > env.basket.y - CLIFF)) { s.safeIn.x = s.p.x; s.safeIn.z = s.p.z; }
+  } else if (ob === 'bounds' || s.t > 30) rest(s, env);
   if (s.t > 30 && s.mode !== 'rest') rest(s, env);
 }
 

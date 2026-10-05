@@ -72,7 +72,7 @@ export default {
         trees: [[{ x: -140, z: -86 }, 3.6, 'broad'], [{ x: -98, z: -62 }, 3.2, 'willow']],
       },
       {
-        name: 'Backwater', par: 4, tee: { x: -95, z: -40 }, basket: { x: -96, z: 66 }, corridor: 5,
+        name: 'Backwater', par: 4, drop: [-96, 35], tee: { x: -95, z: -40 }, basket: { x: -96, z: 66 }, corridor: 5,
         trees: [[{ x: -100, z: -6 }, 3.4, 'willow'], [{ x: -90, z: 24 }, 3.8, 'broad'], [{ x: -101, z: 46 }, 3, 'willow']],
       },
       {
@@ -93,11 +93,11 @@ export default {
         trees: [[{ x: 160, z: 6 }, 5, 'broad'], [{ x: 186, z: 14 }, 4.5, 'broad'], [{ x: 162, z: 50 }, 4.8, 'willow'], [{ x: 176, z: 66 }, 4, 'broad']],
       },
       {
-        name: 'Pier Pressure', par: 3, tee: { x: 101, z: 82 }, basket: { x: 60, z: 128 },
+        name: 'Pier Pressure', par: 3, drop: [76, 92], tee: { x: 101, z: 82 }, basket: { x: 60, z: 128 },
         trees: [],
       },
       {
-        name: 'Crosscurrent', par: 4, tee: { x: 36, z: 30 }, basket: { x: -24, z: -44 },
+        name: 'Crosscurrent', par: 4, drop: [-15, -14], tee: { x: 36, z: 30 }, basket: { x: -24, z: -44 },
         trees: [[{ x: 26, z: 18 }, 3.2, 'willow'], [{ x: -22, z: -28 }, 3.4, 'broad']],
       },
       {

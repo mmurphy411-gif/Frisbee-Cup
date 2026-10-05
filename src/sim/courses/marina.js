@@ -113,7 +113,7 @@ export default {
     // ------------------------------------------------------------ holes
     const holes = [
       {
-        name: 'Cast Off', par: 3, tee: { x: -62, z: -20 }, basket: { x: 16, z: -18 },
+        name: 'Cast Off', par: 3, drop: [-14, -19], tee: { x: -62, z: -20 }, basket: { x: 16, z: -18 },
         trees: [[{ x: -30, z: -29 }, 3.4, 'broad'], [{ x: 2, z: -28 }, 3, 'broad']],
       },
       {

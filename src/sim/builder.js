@@ -452,6 +452,8 @@ export class CourseBuilder {
       return {
         index: i, number: i + 1, name: h.name, par: h.par,
         tee, basket: route[route.length - 1], route, teeYaw: yaw, sign,
+        // a drop zone: where a throw lost in this hole's water may be played from
+        drop: h.drop ? { x: h.drop.x ?? h.drop[0], z: h.drop.z ?? h.drop[1] } : null,
         length: Math.hypot(route[route.length - 1].x - tee.x, route[route.length - 1].z - tee.z),
         playLength,
       };

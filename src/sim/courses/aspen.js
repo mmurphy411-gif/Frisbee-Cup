@@ -109,7 +109,7 @@ export default {
         tub: { x: 60, z: 70 },
       },
       {
-        name: 'Ravine Drop', par: 3, tee: { x: 28, z: 84 }, basket: { x: -28, z: 116 },
+        name: 'Ravine Drop', par: 3, drop: [-9, 91], tee: { x: 28, z: 84 }, basket: { x: -28, z: 116 },
         trees: [[{ x: 6, z: 104 }, 3.4, 'birch'], [{ x: -14, z: 96 }, 3.6, 'pine']],
       },
       {

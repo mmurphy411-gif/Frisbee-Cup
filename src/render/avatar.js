@@ -1,6 +1,7 @@
-// Cartoon disc golfers. Each player gets their own look (skin, hair, hat, a jersey in
-// their colour with their number on the back, a disc bag) and a procedural rig:
-// two-bone IK for arms and legs, a twisting torso and a head that follows the action.
+// Disc golfers in the same faceted, flat-shaded style as the trees and houses. Each player
+// gets their own look (skin, hair, hat, build, a jersey in their colour with their number
+// on the back, a disc bag) and a procedural rig: two-bone IK for arms and legs, a twisting
+// torso and a head that follows the action.
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { discGeometry } from './actors.js';
@@ -9,16 +10,17 @@ const UP = new THREE.Vector3(0, 1, 0);
 const DEG = Math.PI / 180;
 const THIGH = 0.44, SHIN = 0.42, ANKLE = 0.09, UPPER = 0.27, FORE = 0.29;
 const PELVIS_H = 0.94; // pelvis height for a player standing tall
+const HEAD = 0.8; // the head is modelled at 1/0.8 scale
 
 const SKINS = ['#f1c7a1', '#c98e63', '#e3ad86', '#8a5a3b', '#f6d6bd', '#6e4630'];
 const HAIRS = ['#2b1d14', '#e3c26b', '#5a3a22', '#121212', '#a8743a', '#8a2f1e'];
 const SHORTS = ['#2f3b4c', '#c9b48a', '#3d4a3a', '#55595f'];
 const SHOES = ['#f4f4f0', '#2f3640', '#e94f37', '#3b82f6'];
 const STYLES = [
-  { hat: 'cap', hair: 'short' },
-  { hat: 'visor', hair: 'ponytail' },
-  { hat: 'bucket', hair: 'long' },
-  { hat: 'none', hair: 'curly' },
+  { hat: 'cap', hair: 'short', build: 1 },
+  { hat: 'visor', hair: 'ponytail', build: 0.92 },
+  { hat: 'bucket', hair: 'long', build: 1.08 },
+  { hat: 'none', hair: 'curly', build: 0.97 },
 ];
 
 export function playerLook(index, player, weather) {
@@ -28,24 +30,61 @@ export function playerLook(index, player, weather) {
     skin: SKINS[index % SKINS.length], hairColor: HAIRS[index % HAIRS.length],
     shorts: SHORTS[index % SHORTS.length], shoes: SHOES[index % SHOES.length],
     hair: s.hair, hat: cold ? 'beanie' : s.hat, sleeves: cold ? 'long' : 'short', legs: cold ? 'long' : 'short',
+    build: s.build,
   };
 }
 
 // ---------------------------------------------------------------- geometry
-const BODY = new THREE.MeshLambertMaterial({ vertexColors: true });
+const BODY = new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true });
 const G = {
-  sphere: new THREE.SphereGeometry(1, 18, 12),
-  dome: new THREE.SphereGeometry(1, 18, 8, 0, Math.PI * 2, 0, Math.PI / 2),
-  hair: new THREE.SphereGeometry(1, 18, 10, 0, Math.PI * 2, 0, Math.PI * 0.56),
-  cyl: new THREE.CylinderGeometry(1, 1, 1, 16),
-  band: new THREE.CylinderGeometry(1, 1, 1, 18, 1, true),
-  chest: new THREE.CylinderGeometry(1, 0.86, 1, 18),
-  crown: new THREE.CylinderGeometry(0.93, 1, 1, 18),
+  ico: new THREE.IcosahedronGeometry(1, 2),
+  gem: new THREE.IcosahedronGeometry(1, 1),
+  sphere: new THREE.SphereGeometry(1, 10, 7),
+  dome: new THREE.SphereGeometry(1, 12, 5, 0, Math.PI * 2, 0, Math.PI / 2),
+  hair: new THREE.SphereGeometry(1, 12, 6, 0, Math.PI * 2, 0, Math.PI * 0.56),
+  cyl: new THREE.CylinderGeometry(1, 1, 1, 10),
+  band: new THREE.CylinderGeometry(1, 1, 1, 12, 1, true),
+  crown: new THREE.CylinderGeometry(0.93, 1, 1, 12),
+  cone: new THREE.CylinderGeometry(0, 1, 1, 4),
   box: new THREE.BoxGeometry(1, 1, 1),
-  ring: new THREE.TorusGeometry(1, 0.25, 8, 22),
-  smile: new THREE.TorusGeometry(1, 0.22, 5, 12, Math.PI),
+  ring: new THREE.TorusGeometry(1, 0.25, 4, 12),
 };
 const _m = new THREE.Matrix4(), _q = new THREE.Quaternion(), _e = new THREE.Euler(), _s = new THREE.Vector3(), _p = new THREE.Vector3();
+
+// A faceted solid swept up the y axis through elliptical rings [y, rx, rz, ox, oz]:
+// rx is the half depth along x (front to back), rz the half width along z.
+function loft(rings, segs = 8) {
+  const pos = [], idx = [];
+  for (const [y, rx, rz, ox = 0, oz = 0] of rings) {
+    for (let i = 0; i < segs; i++) {
+      const a = ((i + 0.5) / segs) * Math.PI * 2;
+      pos.push(ox + Math.cos(a) * rx, y, oz + Math.sin(a) * rz);
+    }
+  }
+  const n = rings.length;
+  for (let r = 0; r < n - 1; r++) {
+    for (let i = 0; i < segs; i++) {
+      const a = r * segs + i, b = r * segs + ((i + 1) % segs), c = a + segs, d = b + segs;
+      idx.push(a, c, b, b, c, d);
+    }
+  }
+  // close both ends
+  const [y0, , , ox0 = 0, oz0 = 0] = rings[0], [y1, , , ox1 = 0, oz1 = 0] = rings[n - 1];
+  const bot = pos.length / 3; pos.push(ox0, y0, oz0);
+  const top = bot + 1; pos.push(ox1, y1, oz1);
+  for (let i = 0; i < segs; i++) {
+    idx.push(bot, i, (i + 1) % segs);
+    idx.push(top, (n - 1) * segs + ((i + 1) % segs), (n - 1) * segs + i);
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setIndex(idx);
+  g.computeVertexNormals();
+  return g;
+}
+
+// A round limb segment through rings [y, r].
+const limbLoft = (rings, segs = 7) => loft(rings.map(([y, r]) => [y, r, r]), segs);
 
 // Collects coloured shapes for one body part into a single mesh.
 class Part {
@@ -62,18 +101,19 @@ class Part {
     return this;
   }
 
+  // A geometry made just for this part (a loft): add it, then let it go.
+  own(geo, color, pos, rot, scale) {
+    this.add(geo, color, pos, rot, scale);
+    geo.dispose();
+    return this;
+  }
+
   // A rod between two local points.
   rod(color, a, b, r) {
     const A = new THREE.Vector3(...a), B = new THREE.Vector3(...b), dir = B.clone().sub(A), len = dir.length();
     const q = new THREE.Quaternion().setFromUnitVectors(UP, dir.normalize());
     const e = new THREE.Euler().setFromQuaternion(q);
     return this.add(G.cyl, color, A.add(B).multiplyScalar(0.5).toArray(), [e.x, e.y, e.z], [r, len, r]);
-  }
-
-  // A tapering limb segment from y = from*len to y = to*len, radius r0 at the joint end.
-  limb(len, r0, r1, color, from = 0, to = 1, grow = 0) {
-    const h = len * (to - from), ra = r0 + (r1 - r0) * from + grow, rb = r0 + (r1 - r0) * to + grow;
-    return this.add(new THREE.CylinderGeometry(rb, ra, h, 14), color, [0, len * from + h / 2, 0]);
   }
 
   mesh() {
@@ -89,127 +129,143 @@ class Part {
 
 const shade = (hex, k) => new THREE.Color(hex).multiplyScalar(k).getStyle();
 const mixc = (a, b, t) => new THREE.Color(a).lerp(new THREE.Color(b), t).getStyle();
+const PANTS = '#3a4150';
 
+// Modelled at 1/HEAD scale around the skull; the neck point is the origin.
 function buildHead(L) {
   const p = new Part(), skin = L.skin, hair = L.hairColor;
-  const C = (x, y, z) => [x, 0.15 + y, z]; // relative to the centre of the skull
-  p.add(G.sphere, skin, C(0, 0, 0), [0, 0, 0], [0.148, 0.158, 0.143]);
-  p.add(G.sphere, skin, C(0.03, -0.07, 0), [0, 0, 0], [0.112, 0.085, 0.112]);
+  const C = (x, y, z) => [x, 0.1 + y, z]; // relative to the centre of the skull
+  p.add(G.ico, skin, C(0, 0, 0), [0, 0, 0], [0.142, 0.155, 0.13]);
+  p.add(G.ico, skin, C(0.032, -0.075, 0), [0, 0, -0.3], [0.098, 0.085, 0.092]); // jaw and chin
+  p.add(G.cyl, skin, [-0.01, -0.07, 0], [0, 0, 0], [0.075, 0.14, 0.072]); // neck
   for (const s of [-1, 1]) {
-    p.add(G.sphere, skin, C(-0.005, -0.005, s * 0.143), [0, 0, 0], [0.026, 0.04, 0.02]);
-    p.add(G.sphere, '#ffffff', C(0.128, 0.018, s * 0.052), [0, 0, 0], [0.016, 0.031, 0.027]);
-    p.add(G.sphere, '#1d2430', C(0.14, 0.016, s * 0.054), [0, 0, 0], [0.009, 0.019, 0.017]);
-    p.add(G.box, hair, C(0.137, 0.058, s * 0.056), [s * 0.18, 0, 0], [0.014, 0.012, 0.052]);
-    p.add(G.sphere, mixc(skin, '#ff6b6b', 0.35), C(0.118, -0.035, s * 0.085), [0, 0, 0], [0.01, 0.022, 0.028]);
+    p.add(G.gem, skin, C(-0.005, -0.012, s * 0.128), [0, 0, 0], [0.024, 0.04, 0.02]); // ears
+    p.add(G.gem, '#1d2430', C(0.122, 0.012, s * 0.05), [0, 0, 0], [0.014, 0.026, 0.02]); // eyes
+    p.add(G.box, shade(hair, 0.9), C(0.128, 0.052, s * 0.052), [s * 0.12, 0, 0], [0.016, 0.013, 0.05]); // brows
   }
-  p.add(G.sphere, shade(skin, 0.92), C(0.146, -0.02, 0), [0, 0, 0], [0.024, 0.03, 0.022]);
-  p.add(G.smile, '#7a3b34', C(0.138, -0.052, 0), [0, Math.PI / 2, Math.PI], [0.032, 0.032, 0.032]);
+  p.add(G.cone, shade(skin, 0.94), C(0.142, -0.022, 0), [0, 0, -Math.PI / 2], [0.022, 0.05, 0.022]); // nose
+  p.add(G.box, mixc(skin, '#7a3b34', 0.65), C(0.124, -0.072, 0), [0, 0, 0.25], [0.012, 0.011, 0.05]); // mouth
 
   // hair
-  if (L.hair !== 'none') p.add(G.hair, hair, C(-0.008, 0.006, 0), [0, 0, 0.55], [0.156, 0.166, 0.151]);
-  if (L.hair === 'ponytail') {
-    p.add(G.sphere, hair, C(-0.15, 0.03, 0), [0, 0, 0], [0.045, 0.045, 0.045]);
-    p.rod(hair, C(-0.165, 0.02, 0), C(-0.2, -0.15, 0), 0.032);
-    p.add(G.sphere, hair, C(-0.2, -0.15, 0), [0, 0, 0], [0.03, 0.03, 0.03]);
+  if (L.hair !== 'none') p.add(G.hair, hair, C(-0.012, 0.012, 0), [0, 0, 0.55], [0.15, 0.163, 0.139]);
+  if (L.hair === 'short') {
+    for (const s of [-1, 1]) p.add(G.box, hair, C(-0.02, -0.03, s * 0.126), [0, 0, 0], [0.07, 0.06, 0.016]); // sideburns
+  } else if (L.hair === 'ponytail') {
+    p.add(G.gem, hair, C(-0.145, 0.03, 0), [0, 0, 0], [0.045, 0.045, 0.045]);
+    p.add(G.cone, hair, C(-0.19, -0.08, 0), [0, 0, -0.35], [0.045, 0.2, 0.04]);
   } else if (L.hair === 'long') {
-    p.add(G.sphere, hair, C(-0.105, -0.1, 0), [0, 0, 0], [0.065, 0.15, 0.14]);
-    for (const s of [-1, 1]) p.add(G.sphere, hair, C(-0.03, -0.08, s * 0.128), [0, 0, 0], [0.05, 0.11, 0.03]);
+    p.add(G.ico, hair, C(-0.1, -0.1, 0), [0, 0, 0], [0.07, 0.15, 0.135]);
+    for (const s of [-1, 1]) p.add(G.box, hair, C(-0.03, -0.09, s * 0.12), [0, 0, 0], [0.11, 0.17, 0.03]);
   } else if (L.hair === 'curly') {
-    for (let i = 0; i < 18; i++) {
-      const th = 0.15 + (i % 3) * 0.42 + (i % 2) * 0.1, ph = (i / 18) * Math.PI * 2;
+    for (let i = 0; i < 16; i++) {
+      const th = 0.2 + (i % 3) * 0.45 + (i % 2) * 0.1, ph = (i / 16) * Math.PI * 2;
       const dir = [Math.sin(th) * Math.cos(ph), Math.cos(th), Math.sin(th) * Math.sin(ph)];
       if (th > 0.6 && dir[0] > 0.25) continue; // keep the face clear
-      p.add(G.sphere, hair, C(dir[0] * 0.152, dir[1] * 0.16, dir[2] * 0.146), [0, 0, 0], [0.05, 0.05, 0.05]);
+      p.add(G.gem, hair, C(dir[0] * 0.145, dir[1] * 0.155, dir[2] * 0.132), [0, 0, 0], [0.052, 0.052, 0.052]);
     }
   }
 
   // hats
   const hat = shade(L.color, 0.78);
   if (L.hat === 'cap') {
-    p.add(G.dome, hat, C(-0.005, 0.03, 0), [0, 0, 0], [0.16, 0.13, 0.156]);
-    p.add(G.sphere, hat, C(-0.005, 0.158, 0), [0, 0, 0], [0.015, 0.012, 0.015]);
-    p.add(G.cyl, hat, C(0.155, 0.035, 0), [0, 0, -0.14], [0.105, 0.012, 0.125]);
+    p.add(G.dome, hat, C(-0.008, 0.03, 0), [0, 0, 0], [0.152, 0.13, 0.142]);
+    p.add(G.gem, hat, C(-0.008, 0.158, 0), [0, 0, 0], [0.015, 0.012, 0.015]);
+    p.add(G.cyl, hat, C(0.14, 0.045, 0), [0, 0, -0.2], [0.085, 0.013, 0.1]);
   } else if (L.hat === 'visor') {
-    p.add(G.band, hat, C(0, 0.055, 0), [0, 0, 0.12], [0.156, 0.045, 0.152]);
-    p.add(G.cyl, hat, C(0.16, 0.04, 0), [0, 0, -0.16], [0.105, 0.012, 0.125]);
+    p.add(G.band, hat, C(0, 0.06, 0), [0, 0, 0.12], [0.148, 0.045, 0.137]);
+    p.add(G.cyl, hat, C(0.145, 0.05, 0), [0, 0, -0.2], [0.085, 0.013, 0.1]);
   } else if (L.hat === 'bucket') {
-    p.add(G.crown, '#c9b48a', C(0, 0.085, 0), [0, 0, 0], [0.162, 0.12, 0.158]);
-    p.add(G.cyl, '#c9b48a', C(0, 0.145, 0), [0, 0, 0], [0.151, 0.012, 0.147]);
-    p.add(G.cyl, '#b9a47a', C(0, 0.03, 0), [0, 0, 0], [0.235, 0.012, 0.23]);
-    p.add(G.band, shade(L.color, 0.9), C(0, 0.045, 0), [0, 0, 0], [0.165, 0.025, 0.161]);
+    p.add(G.crown, '#c9b48a', C(0, 0.085, 0), [0, 0, 0], [0.155, 0.12, 0.145]);
+    p.add(G.cyl, '#c9b48a', C(0, 0.145, 0), [0, 0, 0], [0.144, 0.014, 0.135]);
+    p.add(G.cyl, '#b9a47a', C(0, 0.03, 0), [0, 0, 0], [0.225, 0.014, 0.215]);
+    p.add(G.band, shade(L.color, 0.9), C(0, 0.045, 0), [0, 0, 0], [0.158, 0.025, 0.148]);
   } else if (L.hat === 'beanie') {
-    p.add(G.dome, L.color, C(-0.005, 0.02, 0), [0, 0, 0], [0.163, 0.178, 0.159]);
-    p.add(G.cyl, '#f4f4f0', C(-0.005, 0.035, 0), [0, 0, 0], [0.166, 0.055, 0.162]);
-    p.add(G.sphere, '#f4f4f0', C(-0.005, 0.205, 0), [0, 0, 0], [0.042, 0.042, 0.042]);
+    p.add(G.dome, L.color, C(-0.008, 0.02, 0), [0, 0, 0], [0.156, 0.178, 0.146]);
+    p.add(G.cyl, '#f4f4f0', C(-0.008, 0.035, 0), [0, 0, 0], [0.166, 0.06, 0.156]);
+    p.add(G.gem, '#f4f4f0', C(-0.008, 0.205, 0), [0, 0, 0], [0.042, 0.042, 0.042]);
   }
-  return p.mesh();
+  const m = p.mesh();
+  m.scale.setScalar(HEAD);
+  return m;
 }
 
+// Chest and shoulders, from the waist (y 0) up to the collar; x is forwards.
 function buildTorso(L, side) {
-  const p = new Part(), shirt = L.color, skin = L.skin;
-  p.add(G.sphere, shirt, [0, 0.1, 0], [0, 0, 0], [0.15, 0.13, 0.188]);
-  p.add(G.chest, shirt, [0, 0.28, 0], [0, 0, 0], [0.155, 0.3, 0.2]);
-  p.add(G.sphere, shirt, [0, 0.43, 0], [0, 0, 0], [0.152, 0.1, 0.205]);
-  for (const s of [-1, 1]) p.add(G.sphere, shirt, [0, 0.45, s * 0.2], [0, 0, 0], [0.072, 0.072, 0.072]);
-  p.add(G.ring, '#f4f4f0', [0.005, 0.53, 0], [Math.PI / 2, 0, 0], [0.068, 0.068, 0.068]);
-  p.add(G.cyl, skin, [0, 0.59, 0], [0, 0, 0], [0.05, 0.12, 0.05]);
+  const p = new Part(), shirt = L.color, k = L.build, trim = shade(shirt, 0.72);
+  p.own(loft([
+    [-0.01, 0.112 * k, 0.15 * k], [0.12, 0.116 * k, 0.152 * k, 0.004], [0.24, 0.124 * k, 0.163 * k, 0.01],
+    [0.35, 0.128 * k, 0.176 * k, 0.012], [0.43, 0.118 * k, 0.182 * k, 0.006], [0.5, 0.092, 0.15 * k], [0.55, 0.058, 0.075],
+  ], 10), shirt);
+  for (const s of [-1, 1]) p.add(G.ico, shirt, [0, 0.43, s * 0.19], [0, 0, 0], [0.068, 0.062, 0.068]); // shoulders
+  p.add(G.ring, trim, [0.006, 0.535, 0], [Math.PI / 2, 0, 0], [0.062, 0.07, 0.07]); // collar
+  p.add(G.box, trim, [0.105 * k, 0.48, 0], [0, 0, -0.5], [0.012, 0.07, 0.035]); // placket
+  p.own(loft([[-0.05, 0.116 * k, 0.156 * k], [0.0, 0.114 * k, 0.153 * k]], 10), trim); // hem
   // disc bag on the off-side hip, strap over the throwing shoulder
-  const bz = -side * 0.27;
-  p.add(G.box, '#2f3640', [-0.02, 0.06, bz], [0, 0, 0], [0.3, 0.34, 0.14]);
-  p.add(G.box, shirt, [-0.02, 0.16, bz], [0, 0, 0], [0.302, 0.06, 0.142]);
-  ['#ff7a3d', '#3b82f6', '#f4c20d'].forEach((c, i) => p.add(G.cyl, c, [-0.1 + i * 0.08, 0.23, bz + (i - 1) * 0.03], [Math.PI / 2, 0, 0], [0.1, 0.02, 0.1]));
-  for (const x of [0.135, -0.135]) p.rod('#2f3640', [x, 0.22, -side * 0.2], [x * 0.85, 0.5, side * 0.12], 0.013);
+  const bz = -side * 0.215 * k;
+  p.own(loft([[-0.2, 0.12, 0.05], [-0.16, 0.135, 0.065], [0.08, 0.135, 0.068], [0.12, 0.12, 0.058]], 8), '#2f3640', [-0.02, 0, bz]);
+  p.own(loft([[0.0, 0.137, 0.07], [0.035, 0.137, 0.07]], 8), shirt, [-0.02, 0, bz]); // bag trim
+  ['#ff7a3d', '#3b82f6', '#f4c20d'].forEach((c, i) => p.add(G.cyl, c, [-0.09 + i * 0.07, 0.15, bz + (i - 1) * 0.022], [Math.PI / 2, 0, 0], [0.095, 0.018, 0.095]));
+  p.rod('#2f3640', [0.02, 0.12, bz], [0.11 * k, 0.4, side * 0.1], 0.016);
+  p.rod('#2f3640', [-0.06, 0.12, bz], [-0.1 * k, 0.42, side * 0.1], 0.016);
   return p.mesh();
 }
 
+// Hips and shorts, around the hip joints at y -0.06.
 function buildPelvis(L) {
-  const p = new Part(), pants = L.legs === 'long' ? '#3a4150' : L.shorts;
-  p.add(G.sphere, pants, [0, -0.03, 0], [0, 0, 0], [0.16, 0.13, 0.205]);
-  p.add(G.cyl, shade(pants, 0.75), [0, 0.07, 0], [0, 0, 0], [0.154, 0.045, 0.197]);
+  const p = new Part(), k = L.build, pants = L.legs === 'long' ? PANTS : L.shorts;
+  p.own(loft([
+    [-0.16, 0.085 * k, 0.11 * k], [-0.11, 0.112 * k, 0.16 * k], [-0.04, 0.118 * k, 0.168 * k], [0.03, 0.112 * k, 0.155 * k], [0.06, 0.108 * k, 0.15 * k],
+  ], 10), pants);
+  p.own(loft([[0.02, 0.116 * k, 0.156 * k], [0.065, 0.111 * k, 0.151 * k]], 10), shade(pants, 0.7)); // waistband
   return p.mesh();
 }
 
+// Hip (y 0) to knee (y THIGH).
 function buildThigh(L) {
-  const p = new Part(), long = L.legs === 'long', pants = long ? '#3a4150' : L.shorts;
-  p.limb(THIGH, 0.074, 0.058, long ? pants : L.skin);
-  if (!long) p.limb(THIGH, 0.074, 0.058, pants, 0, 0.5, 0.016);
-  p.add(G.sphere, long ? pants : L.skin, [0, THIGH, 0], [0, 0, 0], [0.058, 0.058, 0.058]);
+  const p = new Part(), k = L.build, long = L.legs === 'long', leg = long ? PANTS : L.skin;
+  p.own(limbLoft([[-0.02, 0.084 * k], [0.1, 0.084 * k], [0.26, 0.07 * k], [0.38, 0.056 * k], [THIGH + 0.02, 0.05 * k]]), leg);
+  if (!long) p.own(limbLoft([[-0.03, 0.092 * k], [0.12, 0.093 * k], [0.23, 0.087 * k]]), L.shorts); // short leg
+  p.add(G.gem, leg, [0, THIGH, 0], [0, 0, 0], [0.053 * k, 0.055, 0.053 * k]); // knee
   return p.mesh();
 }
 
+// Knee (y 0) to ankle (y SHIN).
 function buildShin(L) {
-  const p = new Part(), long = L.legs === 'long';
-  const leg = long ? '#3a4150' : L.skin;
-  p.limb(SHIN, 0.056, 0.044, leg);
-  p.add(G.sphere, leg, [0, 0.13, 0], [0, 0, 0], [0.063, 0.12, 0.063]);
-  p.limb(SHIN, 0.056, 0.044, '#f4f4f0', 0.74, 1, long ? 0.002 : 0.006);
-  p.add(G.sphere, '#f4f4f0', [0, SHIN, 0], [0, 0, 0], [0.047, 0.047, 0.047]);
+  const p = new Part(), k = L.build, long = L.legs === 'long', leg = long ? PANTS : L.skin;
+  p.own(limbLoft([[0, 0.05 * k], [0.06, 0.057 * k], [0.15, 0.058 * k], [0.28, 0.042 * k], [SHIN - 0.04, 0.036 * k]]), leg);
+  if (long) p.own(limbLoft([[0.25, 0.05 * k], [SHIN - 0.02, 0.048 * k]]), shade(PANTS, 0.85)); // trouser hem
+  else p.own(limbLoft([[0.29, 0.043], [SHIN + 0.01, 0.042]]), '#f4f4f0'); // sock
   return p.mesh();
 }
 
+// A trainer: x is towards the toe, the ankle sits above the origin.
 function buildFoot(L) {
-  const p = new Part();
-  p.add(G.box, '#f4f4f0', [0.055, 0.018, 0], [0, 0, 0], [0.28, 0.036, 0.116]);
-  p.add(G.sphere, L.shoes, [0.065, 0.058, 0], [0, 0, 0], [0.13, 0.06, 0.058]);
-  p.add(G.sphere, L.shoes, [-0.045, 0.066, 0], [0, 0, 0], [0.062, 0.06, 0.056]);
-  p.add(G.box, L.shoes === '#f4f4f0' ? L.color : '#f4f4f0', [0.03, 0.05, 0], [0, 0, 0], [0.16, 0.018, 0.118]);
+  const p = new Part(), trim = L.shoes === '#f4f4f0' ? L.color : '#f4f4f0';
+  // rings along the foot [x, half height, half width, centre height]
+  const shoe = (rings) => loft(rings.map(([x, h, w, c]) => [x, h, w, -c]), 8);
+  p.own(shoe([[-0.075, 0.03, 0.04, 0.055], [-0.055, 0.045, 0.05, 0.058], [0.02, 0.044, 0.05, 0.055], [0.1, 0.034, 0.046, 0.045], [0.165, 0.024, 0.036, 0.035], [0.19, 0.012, 0.02, 0.03]]),
+    L.shoes, [0, 0, 0], [0, 0, -Math.PI / 2]);
+  p.own(shoe([[-0.082, 0.012, 0.045, 0.014], [0.0, 0.013, 0.054, 0.013], [0.17, 0.011, 0.04, 0.013], [0.2, 0.008, 0.022, 0.014]]),
+    trim, [0, 0, 0], [0, 0, -Math.PI / 2]); // sole
   return p.mesh();
 }
 
+// Shoulder (y 0) to elbow (y UPPER).
 function buildUpperArm(L) {
-  const p = new Part(), long = L.sleeves === 'long';
-  p.limb(UPPER, 0.05, 0.043, long ? L.color : L.skin);
-  if (!long) p.limb(UPPER, 0.05, 0.043, L.color, 0, 0.48, 0.016);
-  p.add(G.sphere, long ? L.color : L.skin, [0, UPPER, 0], [0, 0, 0], [0.044, 0.044, 0.044]);
+  const p = new Part(), k = L.build, long = L.sleeves === 'long';
+  p.own(limbLoft([[-0.02, 0.05 * k], [0.08, 0.05 * k], [0.18, 0.043 * k], [UPPER, 0.037 * k]]), long ? L.color : L.skin);
+  if (!long) p.own(limbLoft([[-0.03, 0.064 * k], [0.08, 0.063 * k], [0.13, 0.06 * k]]), L.color); // sleeve
+  p.add(G.gem, long ? L.color : L.skin, [0, UPPER, 0], [0, 0, 0], [0.038 * k, 0.038, 0.038 * k]); // elbow
   return p.mesh();
 }
 
+// Elbow (y 0) to the hand.
 function buildForearm(L) {
-  const p = new Part(), long = L.sleeves === 'long', wrist = FORE - 0.06;
-  p.limb(wrist, 0.043, 0.035, long ? L.color : L.skin);
-  if (long) p.limb(wrist, 0.043, 0.035, shade(L.color, 0.8), 0.82, 1, 0.007);
-  p.add(G.sphere, L.skin, [0, wrist + 0.05, 0], [0, 0, 0], [0.042, 0.06, 0.05]);
-  p.add(G.sphere, L.skin, [0.03, wrist + 0.03, 0.02], [0, 0, 0], [0.018, 0.03, 0.018]);
+  const p = new Part(), k = L.build, long = L.sleeves === 'long', wrist = FORE - 0.06;
+  p.own(limbLoft([[0, 0.038 * k], [0.06, 0.042 * k], [0.18, 0.031 * k], [wrist, 0.026 * k]]), long ? L.color : L.skin);
+  if (long) p.own(limbLoft([[wrist - 0.04, 0.036 * k], [wrist + 0.002, 0.035 * k]]), shade(L.color, 0.8)); // cuff
+  p.add(G.ico, L.skin, [0, wrist + 0.045, 0], [0, 0, 0], [0.034, 0.052, 0.042]); // hand
+  p.add(G.gem, L.skin, [0.028, wrist + 0.025, 0.018], [0, 0, 0.4], [0.014, 0.03, 0.014]); // thumb
   return p.mesh();
 }
 
@@ -222,10 +278,10 @@ function numberDecal(n) {
   g.fillStyle = '#ffffff'; g.fillText(String(n), 64, 70);
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;
-  const m = new THREE.Mesh(new THREE.PlaneGeometry(0.17, 0.17), new THREE.MeshLambertMaterial({
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(0.16, 0.16), new THREE.MeshLambertMaterial({
     map: tex, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2,
   }));
-  m.position.set(-0.152, 0.31, 0);
+  m.position.set(-0.14, 0.3, 0);
   m.rotation.y = -Math.PI / 2;
   return m;
 }
@@ -328,7 +384,6 @@ export class Avatar {
     this.torso = buildTorso(look, this.side);
     this.torso.add(numberDecal(look.number));
     this.head = buildHead(look);
-    this.head.scale.setScalar(1.1); // a slightly big head reads as friendlier
     this.upper = [buildUpperArm(look), buildUpperArm(look)];
     this.fore = [buildForearm(look), buildForearm(look)];
     this.thigh = [buildThigh(look), buildThigh(look)];

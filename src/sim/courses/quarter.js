@@ -52,11 +52,11 @@ export default {
       { name: 'Bourbon Street', par: 4, tee: { x: -205, z: -75 }, basket: { x: -60, z: -75 } },
       { name: "Pirate's Alley", par: 3, tee: { x: -52, z: -50 }, via: [{ x: -17, z: -30 }], basket: { x: -17, z: 12 } },
       { name: 'Jackson Square', par: 3, tee: { x: -24, z: 21 }, basket: { x: 16, z: 74 } },
-      { name: 'Café du Monde', par: 3, tee: { x: 22, z: 79 }, basket: { x: 104, z: 111 } },
-      { name: 'The Moonwalk', par: 4, tee: { x: 60, z: 112 }, basket: { x: -95, z: 111 } },
+      { name: 'Café du Monde', par: 3, drop: [74, 112], tee: { x: 22, z: 79 }, basket: { x: 104, z: 111 } },
+      { name: 'The Moonwalk', par: 4, drop: [-57, 103], tee: { x: 60, z: 112 }, basket: { x: -95, z: 111 } },
       { name: 'Toulouse Street', par: 4, tee: { x: -120, z: 104 }, via: [{ x: -120, z: 40 }], basket: { x: -120, z: -15 } },
       { name: 'Royal Street', par: 4, tee: { x: -105, z: -30 }, basket: { x: 35, z: -30 } },
-      { name: 'French Market', par: 5, tee: { x: 52, z: -18 }, via: [{ x: 54, z: 86 }], basket: { x: 175, z: 101 } },
+      { name: 'French Market', par: 5, drop: [147, 90], tee: { x: 52, z: -18 }, via: [{ x: 54, z: 86 }], basket: { x: 175, z: 101 } },
       { name: "Lafitte's", par: 4, tee: { x: 192, z: 84 }, basket: { x: 192, z: -70 } },
     ];
     for (const h of holes) b.hole(h);

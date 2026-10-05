@@ -90,7 +90,7 @@ export default {
         trees: [[{ x: 170, z: 22 }, 4, 'broad'], [{ x: 190, z: 54 }, 3.4, 'pine']],
       },
       {
-        name: 'Mill Pond', par: 4, tee: { x: 164, z: 74 }, basket: { x: 28, z: 110 }, via: [{ x: 112, z: 104 }],
+        name: 'Mill Pond', par: 4, drop: [58, 112], tee: { x: 164, z: 74 }, basket: { x: 28, z: 110 }, via: [{ x: 112, z: 104 }],
         trees: [[{ x: 134, z: 80 }, 4.2, 'broad'], [{ x: 118, z: 112 }, 3.8, 'pine'], [{ x: 86, z: 116 }, 4.5, 'broad'], [{ x: 26, z: 120 }, 3.2, 'birch']],
       },
       {

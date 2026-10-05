@@ -77,7 +77,7 @@ export default {
         trees: [[{ x: 92, z: -56 }, 4.5, 'willow'], [{ x: 64, z: -66 }, 4.5, 'broad'], [{ x: 44, z: -56 }, 4.2, 'willow'], [{ x: 30, z: -70 }, 3.5, 'bush']],
       },
       {
-        name: 'The Cove', par: 3, tee: { x: 14, z: -80 }, basket: { x: -66, z: -74 },
+        name: 'The Cove', par: 3, drop: [-38, -88], tee: { x: 14, z: -80 }, basket: { x: -66, z: -74 },
         trees: [[{ x: -76, z: -82 }, 4.5, 'pine'], [{ x: -70, z: -62 }, 4, 'willow'], [{ x: 22, z: -90 }, 4, 'broad']],
       },
       {
@@ -85,7 +85,7 @@ export default {
         trees: [[{ x: -84, z: -96 }, 4, 'pine'], [{ x: -124, z: -84 }, 4.5, 'broad'], [{ x: -122, z: -66 }, 3.8, 'birch']],
       },
       {
-        name: 'Island Green', par: 3, tee: { x: -150, z: -52 }, basket: { x: -161, z: -6 },
+        name: 'Island Green', par: 3, drop: [-161, -39], tee: { x: -150, z: -52 }, basket: { x: -161, z: -6 },
         trees: [[{ x: -163, z: -1 }, 2.8, 'willow']],
       },
       {
@@ -97,11 +97,11 @@ export default {
         trees: [[{ x: -95, z: 76 }, 6, 'broad'], [{ x: -62, z: 84 }, 5.5, 'broad'], [{ x: -112, z: 92 }, 5, 'broad'], [{ x: -40, z: 66 }, 4.2, 'willow']],
       },
       {
-        name: 'Peninsula', par: 3, tee: { x: -28, z: 68 }, basket: { x: 11, z: 9 },
+        name: 'Peninsula', par: 3, drop: [5, 40], tee: { x: -28, z: 68 }, basket: { x: 11, z: 9 },
         trees: [[{ x: 20, z: 22 }, 3.6, 'willow'], [{ x: -16, z: 58 }, 4, 'broad']],
       },
       {
-        name: 'Swim Dock', par: 3, tee: { x: 42, z: 54 }, basket: { x: 87.2, z: 2.5 },
+        name: 'Swim Dock', par: 3, drop: [67, 44], tee: { x: 42, z: 54 }, basket: { x: 87.2, z: 2.5 },
         trees: [[{ x: 60, z: 48 }, 4.5, 'broad'], [{ x: 104, z: 32 }, 3.8, 'willow']],
       },
     ];

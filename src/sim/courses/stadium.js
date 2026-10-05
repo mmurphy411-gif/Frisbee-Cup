@@ -45,9 +45,9 @@ const HOLES = [
     bunkers: [[70, 15, 8, 4], [-9, -10, 4.5, 3]] },
   { name: 'Last Chance', par: 5, tee: [55, -110], via: [[52, -20]], basket: [70, 70],
     bunkers: [[120, -17, 30, 4.5], [-9, -10, 4, 3], [-3, 11, 4, 3]] },
-  { name: 'The Island', par: 3, tee: [78, 92], basket: [ISLAND.x, ISLAND.z], green: 7.5,
+  { name: 'The Island', par: 3, drop: [91, 75], tee: [78, 92], basket: [ISLAND.x, ISLAND.z], green: 7.5,
     bunkers: [[-6, -7, 2.4, 2]] },
-  { name: 'Water’s Edge', par: 4, tee: [180, 75], via: [[192, 5]], basket: [185, -75],
+  { name: 'Water’s Edge', par: 4, drop: [180, -45], tee: [180, 75], via: [[192, 5]], basket: [185, -75],
     bunkers: [[50, 16, 7, 4], [-9, 10, 4.5, 3], [-11, -8, 4, 3]] },
 ];
 

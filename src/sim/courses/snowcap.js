@@ -78,7 +78,7 @@ export default {
         trees: [[{ x: -112, z: 30 }, 3.6, 'pine'], [{ x: -88, z: 34 }, 3.4, 'broad'], [{ x: -98, z: 4 }, 3.2, 'pine'], [{ x: -74, z: 4 }, 3, 'birch']],
       },
       {
-        name: 'Pond Hockey', par: 3, tee: { x: -78, z: -18 }, basket: { x: -4, z: 34 },
+        name: 'Pond Hockey', par: 3, drop: [-54, -16], tee: { x: -78, z: -18 }, basket: { x: -4, z: 34 },
         trees: [[{ x: -64, z: -32 }, 3.4, 'pine'], [{ x: 10, z: 42 }, 3.6, 'broad'], [{ x: -14, z: 46 }, 3.2, 'pine'], [{ x: -22, z: 38 }, 3, 'willow']],
       },
       {

@@ -36,11 +36,11 @@ const HOLES = [
     bunkers: [[100, -16, 8, 4], [-10, -9, 4.5, 3], [-11, 9, 4, 3]] },
   { name: 'The Point', par: 3, tee: [255, -20], basket: [305, -48], green: 6.5,
     bunkers: [[-7, -7, 2.6, 2], [-2, 7, 2.6, 2], [5, -5, 2.4, 2]] },
-  { name: 'The Chasm', par: 4, tee: [265, -70], via: [[250, -115]], basket: [270, -170], green: 7.5,
+  { name: 'The Chasm', par: 4, drop: [249, -147], tee: [265, -70], via: [[250, -115]], basket: [270, -170], green: 7.5,
     bunkers: [[-10, -9, 4, 3], [-3, 10, 3.5, 2.6]] },
-  { name: 'Rim', par: 4, tee: [250, -190], via: [[190, -198]], basket: [130, -185],
+  { name: 'Rim', par: 4, drop: [160, -179], tee: [250, -190], via: [[190, -198]], basket: [130, -185],
     bunkers: [[-10, 9, 4.5, 3], [-8, -10, 4, 3]] },
-  { name: 'Carmel Bay', par: 4, tee: [115, -195], basket: [0, -185],
+  { name: 'Carmel Bay', par: 4, drop: [29, -176], tee: [115, -195], basket: [0, -185],
     bunkers: [[64, 14, 7, 4], [-10, 10, 4.5, 3]] },
   { name: 'Cypress', par: 4, tee: [10, -160], basket: [30, -50],
     bunkers: [[66, 15, 7, 4], [-9, -10, 4.5, 3]] },
@@ -56,7 +56,7 @@ const HOLES = [
     bunkers: [[64, 14, 7, 4], [-10, -9, 4.5, 3]] },
   { name: 'Hourglass', par: 3, tee: [-40, 125], basket: [-95, 160], green: 8,
     bunkers: [[-10, -9, 4.5, 3], [-2, 0, 3, 2.2], [-8, 10, 4, 3]] },
-  { name: 'Seawall', par: 5, tee: [-85, 172], via: [[-180, 180]], basket: [-262, 160],
+  { name: 'Seawall', par: 5, drop: [-232, 167], tee: [-85, 172], via: [[-180, 180]], basket: [-262, 160],
     bunkers: [[120, 14, 8, 4], [-10, 10, 4.5, 3], [-12, -8, 4, 3]] },
 ];
 const BUNKERS = bunkerList(HOLES);

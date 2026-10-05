@@ -65,6 +65,15 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #8fd0ff; col
 .pin-dist { background: var(--accent); color: #fff; font-weight: 700; font-size: 12px; padding: 2px 8px; border-radius: 9px; white-space: nowrap; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25); }
 .pin-stem { width: 2px; height: 26px; background: var(--accent); }
 
+#choice { position: absolute; left: 50%; top: 36%; transform: translateX(-50%); pointer-events: auto; display: flex; flex-direction: column; gap: 8px; min-width: 290px; }
+.choice-title { font-weight: 800; font-size: 15px; }
+.choice-btn {
+  font: inherit; display: flex; align-items: center; gap: 10px; text-align: left; color: var(--ink); background: #fff;
+  border: 2px solid var(--line); border-radius: 12px; padding: 8px 12px; cursor: pointer; font-weight: 700; font-size: 15px;
+}
+.choice-btn:hover { border-color: var(--accent); }
+.choice-btn small { display: block; font-size: 12px; font-weight: 400; color: var(--ink-soft); }
+.choice-btn kbd { flex: none; }
 #toast {
   position: absolute; left: 50%; top: 24%; transform: translate(-50%, -50%) scale(0.9); opacity: 0; transition: opacity 0.25s, transform 0.25s;
   font-size: 34px; font-weight: 800; color: #fff; text-shadow: 0 3px 0 rgba(23, 50, 74, 0.55), 0 0 18px rgba(23, 50, 74, 0.45); text-align: center; white-space: nowrap;

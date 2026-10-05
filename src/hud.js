@@ -427,6 +427,24 @@ export class Hud {
     this.bannerTimer = setTimeout(() => el.classList.remove('show'), ms);
   }
 
+  // A short list of choices over the course, e.g. how to play on after going out of bounds.
+  // Each option is { key, label, sub, pick }; the game handles the keys itself.
+  showChoice({ title, options }) {
+    const el = $('choice');
+    el.innerHTML = `<div class="choice-title">${esc(title)}</div>`;
+    for (const o of options) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'choice-btn';
+      btn.innerHTML = `<kbd>${esc(o.key)}</kbd><span>${esc(o.label)}<small>${esc(o.sub)}</small></span>`;
+      btn.onclick = o.pick;
+      el.append(btn);
+    }
+    el.classList.remove('hidden');
+  }
+
+  hideChoice() { $('choice').classList.add('hidden'); }
+
   toggleHelp(on) {
     const el = $('help');
     el.classList.toggle('hidden', on === undefined ? !el.classList.contains('hidden') : !on);

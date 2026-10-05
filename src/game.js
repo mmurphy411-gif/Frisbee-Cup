@@ -97,6 +97,7 @@ export class Game {
     for (const p of this.players) if (p.ghost) p.avatar.ghostly();
     this.hud.showGame(true);
     this.hud.hideScorecard();
+    this.hud.hideChoice();
     this.holeIndex = 0;
     this.beginHole();
   }
@@ -325,9 +326,11 @@ export class Game {
     const s = this.flight, p = this.current, hole = this.hole;
     if (s.holed) return this.holeOut(p);
     if (s.ob) {
-      // penalty throw, then play from where the disc was last over fair ground
+      // penalty throw, then play on from where it went out (or a drop zone), or re-throw
       p.strokes++;
-      p.lie = this.world.relief(s.lastIn.x, s.lastIn.z);
+      const spots = this.outSpots(s);
+      p.lie = spots.out;
+      if (!p.ghost && p.strokes < hole.par + 5) return this.offerRethrow(p, spots, s.start);
     } else {
       p.lie = this.world.relief(s.p.x, s.p.z);
     }
@@ -336,6 +339,38 @@ export class Game {
     if (nextThrow) p.lie = { ...nextThrow.from };
     if (p.strokes >= hole.par + 5) return this.holeOut(p, 'Picked up');
     this.nextTurn();
+  }
+
+  // Where an out-of-bounds throw can play on from: the last fair ground it crossed that isn't
+  // down a cliff, and the hole's drop zone when the throw was lost in its water.
+  outSpots(s) {
+    const hole = this.hole, last = s.safeIn ?? s.lastIn;
+    const water = s.ob !== 'bounds' && s.ob !== 'roof' && s.ob !== 'pool';
+    return {
+      out: this.world.relief(last.x, last.z),
+      drop: hole.drop && water ? this.world.relief(hole.drop.x, hole.drop.z) : null,
+    };
+  }
+
+  // After a penalty: play on from where it went out, from the drop zone, or take stroke and
+  // distance and re-throw from the previous lie.
+  offerRethrow(p, spots, from) {
+    this.state = 'obChoice';
+    const toBasket = (q) => `${feet(Math.hypot(this.basket.x - q.x, this.basket.z - q.z))} ft to the basket`;
+    const picks = [{ label: 'Play it from where it went out', at: spots.out }];
+    if (spots.drop) picks.push({ label: 'Drop zone', at: spots.drop });
+    picks.push({ label: 'Re-throw from the last lie', at: { x: from.x, z: from.z } });
+    this.obPick = (i) => {
+      if (this.state !== 'obChoice' || !picks[i]) return;
+      this.hud.hideChoice();
+      p.lie = { x: picks[i].at.x, z: picks[i].at.z };
+      this.audio.play('tick');
+      this.nextTurn();
+    };
+    this.hud.showChoice({
+      title: `${p.name}: one penalty throw`,
+      options: picks.map((o, i) => ({ key: String(i + 1), label: o.label, sub: toBasket(o.at), pick: () => this.obPick(i) })),
+    });
   }
 
   holeOut(p, label) {
@@ -440,6 +475,7 @@ export class Game {
 
   toMenu() {
     this.state = 'menu';
+    this.hud.hideChoice();
     this.audio.music.play('clubhouse');
     this.audio.ambience(null);
     this.audio.stopWhoosh();
@@ -455,6 +491,11 @@ export class Game {
     if (code === 'KeyN') return this.audio.toggleMusic();
     if (this.state === 'intro' && (code === 'Space' || code === 'Enter')) { this.timer = 0; return; }
     if (this.state === 'card' && code === 'Enter') return this.hud.scoreAction?.();
+    if (this.state === 'obChoice') {
+      const n = code === 'Enter' ? 1 : Number(code.replace(/^(Digit|Numpad)/, ''));
+      if (n >= 1) this.obPick(n - 1);
+      return;
+    }
     if (this.state !== 'aim') return;
     const aim = this.aim;
     if (code === 'Tab') {
