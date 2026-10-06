@@ -41,6 +41,7 @@ export class Game {
     this.focus = new THREE.Vector3();
     this.controls = new Controls(canvas, {
       canAim: () => this.state === 'aim' && !this.hud.scorecardOpen(),
+      captureTab: () => this.state === 'aim' && document.getElementById('help').classList.contains('hidden'),
       aim: this.aim,
       onChange: () => { this.aimDirty = true; },
       onKey: (code, down) => this.key(code, down),

@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { Line2 } from 'three/addons/lines/Line2.js';
 import { LineGeometry } from 'three/addons/lines/LineGeometry.js';
 import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { DISC_RADIUS } from '../sim/flight.js';
 
 const UP = new THREE.Vector3(0, 1, 0);
@@ -15,15 +16,51 @@ export function discGeometry() {
   return new THREE.LatheGeometry(pts.map(([x, y]) => new THREE.Vector2(x, y)), 28);
 }
 
+// A little two-ink club stamp. It stays on the flat part of the original disc, so
+// the rim, silhouette and physical size are unchanged. One small texture per disc
+// lets each avatar dispose its own artwork along with the rest of its kit.
+export function makeDiscMesh(color) {
+  const mesh = new THREE.Mesh(discGeometry(), new THREE.MeshLambertMaterial({ color, side: THREE.DoubleSide }));
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = 128;
+  const g = canvas.getContext('2d');
+  const cream = '#fff3d5';
+  g.strokeStyle = cream; g.fillStyle = cream;
+  g.lineWidth = 4;
+  g.beginPath(); g.arc(64, 64, 58, 0, Math.PI * 2); g.stroke();
+  g.lineWidth = 2;
+  g.beginPath(); g.arc(64, 64, 49, 0.45, Math.PI * 1.2); g.stroke();
+  // The club's tiny flying saucer: an off-centre star makes the spin legible.
+  g.beginPath(); g.ellipse(63, 60, 26, 9, -0.18, 0, Math.PI * 2); g.fill();
+  g.lineWidth = 4;
+  g.beginPath(); g.ellipse(63, 54, 14, 10, -0.18, Math.PI, Math.PI * 2); g.stroke();
+  for (let i = 0; i < 3; i++) {
+    g.beginPath(); g.moveTo(36 + i * 8, 74 + i * 3); g.lineTo(45 + i * 8, 72 + i * 3); g.stroke();
+  }
+  g.beginPath();
+  for (let i = 0; i < 8; i++) {
+    const a = i * Math.PI / 4 - Math.PI / 2, r = i % 2 ? 3 : 9;
+    const x = 94 + Math.cos(a) * r, y = 35 + Math.sin(a) * r;
+    if (!i) g.moveTo(x, y); else g.lineTo(x, y);
+  }
+  g.closePath(); g.fill();
+  g.font = 'bold 10px Trebuchet MS, sans-serif';
+  g.textAlign = 'center'; g.fillText('FLIGHT CLUB', 63, 99);
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  const stamp = new THREE.Mesh(new THREE.PlaneGeometry(DISC_RADIUS * 1.62, DISC_RADIUS * 1.62),
+    new THREE.MeshLambertMaterial({ map: texture, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1 }));
+  stamp.rotation.x = -Math.PI / 2;
+  stamp.position.y = 0.0125;
+  mesh.add(stamp);
+  mesh.castShadow = true;
+  return mesh;
+}
+
 export class DiscMesh {
   constructor(scene) {
-    this.material = new THREE.MeshLambertMaterial({ color: '#ff7a3d', side: THREE.DoubleSide });
-    this.mesh = new THREE.Mesh(discGeometry(), this.material);
-    // a stripe so the spin reads
-    const stripe = new THREE.Mesh(new THREE.BoxGeometry(DISC_RADIUS * 1.5, 0.004, 0.02), new THREE.MeshBasicMaterial({ color: '#ffffff' }));
-    stripe.position.y = 0.014;
-    this.mesh.add(stripe);
-    this.mesh.castShadow = true;
+    this.mesh = makeDiscMesh('#ff7a3d');
+    this.material = this.mesh.material;
     this.mesh.visible = false;
     this.angle = 0;
     scene.add(this.mesh);
@@ -86,10 +123,19 @@ export class Tracer extends Ribbon {
 
 export class Preview extends Ribbon {
   constructor(scene) {
-    super(scene, { color: '#ffffff', width: 3, opacity: 0.8, dashed: true });
-    const ring = new THREE.RingGeometry(0.9, 1.25, 28);
+    super(scene, { color: '#fff4d8', width: 2.5, opacity: 0.8, dashed: true });
+    const ring = new THREE.RingGeometry(0.96, 1.08, 40);
     ring.rotateX(-Math.PI / 2);
-    this.ring = new THREE.Mesh(ring, new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.85, depthWrite: false }));
+    // Four little compass ticks give the target a designed, park-map quality.
+    const parts = [ring];
+    for (let i = 0; i < 4; i++) {
+      const a = i * Math.PI / 2;
+      const tick = new THREE.BoxGeometry(0.08, 0.002, 0.25);
+      tick.rotateY(a).translate(Math.sin(a) * 1.25, 0, Math.cos(a) * 1.25);
+      parts.push(tick);
+    }
+    this.ring = new THREE.Mesh(mergeGeometries(parts), new THREE.MeshBasicMaterial({ color: '#fff4d8', transparent: true, opacity: 0.9, depthWrite: false }));
+    for (const part of parts) part.dispose();
     this.ring.visible = false;
     scene.add(this.ring);
   }

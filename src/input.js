@@ -16,7 +16,7 @@ const clamp = (v, [lo, hi]) => Math.max(lo, Math.min(hi, v));
 export class Controls {
   constructor(canvas, handlers) {
     this.canvas = canvas;
-    this.h = handlers; // { canAim(), aim, onChange(), onKey(code), onSwingStart(), onSwing(info), onThrow(result), onCancel() }
+    this.h = handlers; // { canAim(), captureTab(), aim, onChange(), onKey(code), onSwingStart(), onSwing(info), onThrow(result), onCancel() }
     this.keys = new Set();
     this.swing = null;
     this.look = null;
@@ -24,7 +24,12 @@ export class Controls {
 
     window.addEventListener('keydown', (e) => {
       if (e.target instanceof HTMLInputElement) return;
-      if (e.code === 'Tab') e.preventDefault();
+      // Tab belongs to the browser in menus and help; only the live scorecard
+      // shortcut captures it. Return before tracking it as a gameplay key.
+      if (e.code === 'Tab') {
+        if (!this.h.captureTab?.()) return;
+        e.preventDefault();
+      }
       if (e.repeat) return;
       this.keys.add(e.code);
       if (e.code === 'Escape' && this.swing) this.cancel();

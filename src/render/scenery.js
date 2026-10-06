@@ -12,17 +12,22 @@ import { PROP_RENDERERS } from './props/index.js';
 const CAR_COLORS = ['#d9534f', '#3b7dd8', '#f2f2f2', '#2f3640', '#e6b422', '#4caf7d', '#8e44ad', '#c0c4c8'];
 const FOUNDATION = '#a39a8c';
 const WOOD = '#a07a52', WOOD_DARK = '#6e5238';
+const PARK = { pine: '#244a3e', cream: '#fff1cf', orange: '#dd7146', butter: '#edc76d', sage: '#819875' };
 const _c = new THREE.Color();
 
 function labelSprite(text, bg, size = 128) {
   const canvas = document.createElement('canvas');
   canvas.width = canvas.height = size;
   const g = canvas.getContext('2d'), r = size / 2;
+  // A little enamel trail badge, legible against foliage as well as pale sky.
+  g.fillStyle = PARK.pine;
+  g.beginPath(); g.arc(r, r, r * 0.96, 0, Math.PI * 2); g.fill();
+  g.fillStyle = PARK.cream;
+  g.beginPath(); g.arc(r, r, r * 0.88, 0, Math.PI * 2); g.fill();
   g.fillStyle = bg;
-  g.beginPath(); g.arc(r, r, r * 0.9, 0, Math.PI * 2); g.fill();
-  g.lineWidth = size / 16; g.strokeStyle = '#ffffff'; g.stroke();
-  g.fillStyle = '#ffffff'; g.font = `bold ${size * 0.58}px sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle';
-  g.fillText(text, r, r * 1.08);
+  g.beginPath(); g.arc(r, r, r * 0.73, 0, Math.PI * 2); g.fill();
+  g.fillStyle = PARK.cream; g.font = `800 ${size * 0.5}px sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.fillText(text, r, r * 1.05);
   const tex = new THREE.CanvasTexture(canvas);
   tex.colorSpace = THREE.SRGBColorSpace;
   return new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthWrite: false }));
@@ -180,11 +185,12 @@ function house(M, h, rng, decor, sprites) {
 function shade(geo, lo, hi, axisMin, axisMax, seed) {
   const pos = geo.attributes.position, col = new Float32Array(pos.count * 3), rng = mulberry32(seed);
   for (let i = 0; i < pos.count; i += 3) {
-    const jitter = 0.92 + rng() * 0.16;
+    const jitter = 0.96 + rng() * 0.08;
     for (let k = 0; k < 3; k++) {
-      const t = (pos.getY(i + k) - axisMin) / (axisMax - axisMin);
-      const v = (lo + (hi - lo) * Math.max(0, Math.min(1, t))) * jitter;
-      col.set([v, v, v], (i + k) * 3);
+      const t = Math.max(0, Math.min(1, (pos.getY(i + k) - axisMin) / (axisMax - axisMin)));
+      const v = (lo + (hi - lo) * t) * jitter;
+      // Warm crowns and cooler undersides, baked once into the existing vertices.
+      col.set([v * (0.96 + t * 0.09), v, v * (1.03 - t * 0.12)], (i + k) * 3);
     }
   }
   geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
@@ -317,33 +323,66 @@ function signTexture(hole) {
   const W = 256, H = 320, c = document.createElement('canvas');
   c.width = W; c.height = H;
   const g = c.getContext('2d');
-  g.fillStyle = '#1f5a3d'; g.fillRect(0, 0, W, H);
-  g.strokeStyle = '#ffffff'; g.lineWidth = 8; g.strokeRect(8, 8, W - 16, H - 16);
-  g.fillStyle = '#ffffff'; g.textAlign = 'center';
-  g.font = 'bold 26px sans-serif'; g.fillText('HOLE', W / 2, 46);
-  g.font = 'bold 84px sans-serif'; g.fillText(String(hole.number), W / 2, 128);
-  g.font = 'bold 26px sans-serif';
-  g.fillText(`PAR ${hole.par}  ·  ${Math.round(hole.playLength * 3.28084)} FT`, W / 2, 166);
+  g.fillStyle = PARK.cream; g.fillRect(0, 0, W, H);
+  g.strokeStyle = PARK.pine; g.lineWidth = 3; g.strokeRect(9, 9, W - 18, H - 18);
+  g.fillStyle = PARK.pine; g.fillRect(9, 9, W - 18, 37);
+  g.fillStyle = PARK.cream; g.textAlign = 'center';
+  g.font = 'bold 15px sans-serif'; g.fillText('FRISBEE CUP  /  TRAIL GUIDE', W / 2, 34);
+  g.fillStyle = PARK.orange;
+  g.beginPath(); g.arc(W / 2, 97, 42, 0, Math.PI * 2); g.fill();
+  g.fillStyle = PARK.cream; g.font = '800 64px sans-serif'; g.fillText(String(hole.number), W / 2, 120);
+  g.fillStyle = PARK.pine; g.font = 'bold 20px sans-serif';
+  g.fillText(hole.name, W / 2, 162, W - 32);
+  g.font = 'bold 17px sans-serif';
+  g.fillText(`PAR ${hole.par}   /   ${Math.round(hole.playLength * 3.28084)} FT`, W / 2, 187);
   // little map of the line of play
   const r = hole.route, xs = r.map((p) => p.x), zs = r.map((p) => p.z);
   const minX = Math.min(...xs), maxX = Math.max(...xs), minZ = Math.min(...zs), maxZ = Math.max(...zs);
-  const k = Math.min(180 / Math.max(maxX - minX, 1), 110 / Math.max(maxZ - minZ, 1));
-  const P = (p) => [W / 2 + (p.x - (minX + maxX) / 2) * k, 246 + (p.z - (minZ + maxZ) / 2) * k];
-  g.strokeStyle = '#9fd47a'; g.lineWidth = 10; g.lineCap = 'round'; g.lineJoin = 'round';
+  const k = Math.min(176 / Math.max(maxX - minX, 1), 70 / Math.max(maxZ - minZ, 1));
+  const P = (p) => [W / 2 + (p.x - (minX + maxX) / 2) * k, 249 + (p.z - (minZ + maxZ) / 2) * k];
+  g.strokeStyle = '#d7dec1'; g.lineWidth = 22; g.lineCap = 'round'; g.lineJoin = 'round';
   g.beginPath(); r.forEach((p, i) => (i ? g.lineTo(...P(p)) : g.moveTo(...P(p)))); g.stroke();
+  g.strokeStyle = PARK.pine; g.lineWidth = 3; g.setLineDash([3, 7]); g.stroke(); g.setLineDash([]);
   const [tx, tz] = P(r[0]), [bx, bz] = P(r[r.length - 1]);
-  g.fillStyle = '#ffffff'; g.fillRect(tx - 8, tz - 8, 16, 16);
-  g.fillStyle = '#ff7a3d'; g.beginPath(); g.arc(bx, bz, 10, 0, Math.PI * 2); g.fill();
-  g.strokeStyle = '#ffffff'; g.lineWidth = 3; g.stroke();
+  g.fillStyle = PARK.pine; g.fillRect(tx - 6, tz - 6, 12, 12);
+  g.fillStyle = PARK.orange; g.beginPath(); g.arc(bx, bz, 9, 0, Math.PI * 2); g.fill();
+  g.strokeStyle = PARK.cream; g.lineWidth = 3; g.stroke();
+  g.fillStyle = PARK.pine; g.font = 'bold 10px sans-serif'; g.fillText('A LITTLE AIR. A LITTLE ADVENTURE.', W / 2, 302);
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;
   return tex;
 }
 
+function signGarden(M, sign, hole, theme, world) {
+  // Small discoveries at your feet, all merged into the existing scenery mesh.
+  // They live beside the signpost, well outside the tee and its throwing line.
+  if (theme.season === 'winter' || !theme.porchDecor) return;
+  for (let i = 0; i < 3; i++) {
+    const a = hole.number * 1.7 + i * 2.4;
+    const x = sign.x + Math.cos(a) * (0.36 + i * 0.12), z = sign.z + Math.sin(a) * (0.36 + i * 0.12);
+    const y = groundHeight(x, z), water = world.waterAt(x, z);
+    if (water && world.waterLevel(water, x, z) > y - 0.1) continue;
+    const h = 0.18 + i * 0.06;
+    if (theme.season === 'autumn') {
+      M.flat.put('cyl6', x, y + h / 2, z, 0.045, h, 0.045, PARK.cream);
+      M.flat.put('rock', x, y + h, z, 0.22, 0.11, 0.22, i % 2 ? PARK.butter : PARK.orange, a);
+      M.flat.put('rock', x + 0.02, y + h + 0.045, z, 0.06, 0.015, 0.045, PARK.cream, a);
+      continue;
+    }
+    M.flat.put('box', x, y + h / 2, z, 0.018, h, 0.018, PARK.pine);
+    const color = i % 2 ? PARK.butter : PARK.cream;
+    for (let k = 0; k < 5; k++) {
+      const angle = a + k * Math.PI * 0.4, px = x + Math.cos(angle) * 0.067, pz = z + Math.sin(angle) * 0.067;
+      M.flat.put('rock', px, y + h, pz, 0.11, 0.024, 0.065, color, -angle);
+    }
+    M.flat.put('rock', x, y + h + 0.012, z, 0.06, 0.035, 0.06, PARK.orange);
+  }
+}
+
 // ----------------------------------------------------------------- baskets
 function basketMesh(number) {
   const g = new THREE.Group();
-  const metal = new THREE.MeshLambertMaterial({ color: '#c9ced6' });
+  const metal = new THREE.MeshLambertMaterial({ color: '#c1c9bd' });
   const open = (color) => new THREE.MeshLambertMaterial({ color, side: THREE.DoubleSide });
   const add = (geo, mat, y, rx = 0) => {
     const m = new THREE.Mesh(geo, mat);
@@ -352,11 +391,11 @@ function basketMesh(number) {
     return m;
   };
   add(new THREE.CylinderGeometry(BASKET.poleR, BASKET.poleR, 1.58, 8), metal, 0.79);
-  add(new THREE.CylinderGeometry(0.36, 0.3, 0.18, 20, 1, true), open('#b9bfc8'), BASKET.trayY);
+  add(new THREE.CylinderGeometry(0.36, 0.3, 0.18, 20, 1, true), open(PARK.pine), BASKET.trayY);
   add(new THREE.CircleGeometry(0.3, 20), metal, BASKET.trayY - 0.08, -Math.PI / 2);
   add(new THREE.TorusGeometry(0.36, 0.018, 6, 24), metal, BASKET.trayY + 0.09, Math.PI / 2);
-  add(new THREE.CylinderGeometry(0.31, 0.31, 0.12, 20, 1, true), open('#ffcf33'), BASKET.topY + 0.04);
-  add(new THREE.TorusGeometry(0.31, 0.02, 6, 24), open('#ffcf33'), BASKET.topY + 0.1, Math.PI / 2);
+  add(new THREE.CylinderGeometry(0.31, 0.31, 0.12, 20, 1, true), open(PARK.orange), BASKET.topY + 0.04);
+  add(new THREE.TorusGeometry(0.31, 0.02, 6, 24), open(PARK.cream), BASKET.topY + 0.1, Math.PI / 2);
   // chains: outer and inner rings of strands bowing out between the band and the pole
   const pts = [];
   const strand = (a, r0, bow) => {
@@ -369,9 +408,9 @@ function basketMesh(number) {
   for (let i = 0; i < 8; i++) strand((i / 8 + 0.06) * Math.PI * 2, 0.15, 0.13);
   const cg = new THREE.BufferGeometry();
   cg.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3));
-  const chains = new THREE.LineSegments(cg, new THREE.LineBasicMaterial({ color: '#9aa1aa' }));
+  const chains = new THREE.LineSegments(cg, new THREE.LineBasicMaterial({ color: '#b5c4b5' }));
   g.add(chains);
-  const flag = labelSprite(String(number), '#ff7a3d');
+  const flag = labelSprite(String(number), PARK.orange);
   flag.scale.set(0.8, 0.8, 1);
   flag.position.y = 2.2;
   g.add(flag);
@@ -757,16 +796,27 @@ export function buildScenery(L, world, group) {
   for (const hole of L.holes) {
     const y = world.standHeight(hole.tee.x, hole.tee.z);
     const f = { cx: hole.tee.x, cz: hole.tee.z, cos: Math.cos(hole.teeYaw), sin: Math.sin(hole.teeYaw), ang: hole.teeYaw };
-    M.detail.local(f, 'box', 0, y + 0.04, 0, 3.6, 0.12, 1.7, '#59636e');
-    M.detail.local(f, 'box', 1.72, y + 0.105, 0, 0.12, 0.02, 1.6, '#ffffff');
+    M.detail.local(f, 'box', 0, y + 0.04, 0, 3.6, 0.12, 1.7, PARK.pine);
+    M.detail.local(f, 'box', 1.72, y + 0.105, 0, 0.12, 0.02, 1.6, PARK.cream);
+    for (const side of [-1, 1]) M.detail.local(f, 'box', 0, y + 0.105, side * 0.77, 3.38, 0.012, 0.035, PARK.sage);
+    for (const u of [-0.95, -0.68, -0.41]) M.detail.local(f, 'box', u, y + 0.105, 0, 0.12, 0.012, 0.035, PARK.cream);
     if (!hole.sign) continue;
     const s = hole.sign, gy = G(s.x, s.z);
     const fx = hole.tee.x - s.x - Math.cos(hole.teeYaw) * 3, fz = hole.tee.z - s.z - Math.sin(hole.teeYaw) * 3;
     const face = Math.atan2(fx, fz);
-    M.detail.put('box', s.x, gy + 0.85, s.z, 0.1, 1.7, 0.1, '#5a4a3a');
-    M.detail.put('box', s.x, gy + 1.45, s.z, 0.98, 1.22, 0.06, '#3b3127', face);
+    M.detail.put('box', s.x, gy + 0.85, s.z, 0.1, 1.7, 0.1, '#66563d');
+    M.detail.put('box', s.x, gy + 1.45, s.z, 0.98, 1.22, 0.06, PARK.pine, face);
+    M.detail.put('box', s.x, gy + 2.09, s.z, 1.07, 0.06, 0.13, PARK.butter, face);
+    const P = (u, h) => [s.x + Math.cos(face) * u + Math.sin(face) * 0.04, gy + h, s.z - Math.sin(face) * u + Math.cos(face) * 0.04];
+    M.detail.beam('box', P(-0.36, 0.79), P(0.36, 0.79), 0.014, PARK.cream);
+    for (let i = 0; i < 3; i++) {
+      const u = (i - 1) * 0.24, a = P(u - 0.09, 0.78), b = P(u + 0.09, 0.78), c = P(u, 0.59);
+      M.detail.tris([...a, ...b, ...c, ...c, ...b, ...a], [PARK.orange, PARK.cream, PARK.butter][i]);
+    }
+    signGarden(M, s, hole, theme, world);
     const board = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 1.12), new THREE.MeshLambertMaterial({ map: signTexture(hole) }));
-    board.position.set(s.x + Math.sin(face) * 0.035, gy + 1.45, s.z + Math.cos(face) * 0.035);
+    // Clear even the diagonal of the square post, at every sign orientation.
+    board.position.set(s.x + Math.sin(face) * 0.085, gy + 1.45, s.z + Math.cos(face) * 0.085);
     board.rotation.y = face;
     signBoards.push(board);
   }

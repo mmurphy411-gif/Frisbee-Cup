@@ -58,9 +58,13 @@ function segmented(el, options, initial, onPick) {
     b.type = 'button';
     b.textContent = label;
     b.className = i === current ? 'active' : '';
+    b.setAttribute('aria-pressed', String(i === current));
     b.onclick = () => {
       current = i;
-      [...el.children].forEach((c, j) => c.classList.toggle('active', j === i));
+      [...el.children].forEach((c, j) => {
+        c.classList.toggle('active', j === i);
+        c.setAttribute('aria-pressed', String(j === i));
+      });
       onPick(i);
     };
     el.appendChild(b);
@@ -113,6 +117,10 @@ function drawThumb(canvas, L) {
     g.fillStyle = '#ff7a3d'; g.beginPath(); g.arc(x, z, 5.5, 0, Math.PI * 2); g.fill();
     g.fillStyle = '#ffffff'; g.fillText(String(hole.number), x, z + 0.5);
   }
+  // A paper wash makes the real course geometry read like a pocket field map.
+  g.fillStyle = 'rgba(246,231,191,0.12)'; g.fillRect(0, 0, W, H);
+  g.strokeStyle = 'rgba(255,252,238,0.65)'; g.lineWidth = 1;
+  g.strokeRect(6.5, 6.5, W - 13, H - 13);
 }
 
 export class Hud {
@@ -171,25 +179,46 @@ export class Hud {
       card.type = 'button';
       card.className = 'course-card';
       card.dataset.id = L.id;
+      card.dataset.search = `${L.name} ${L.blurb}`.toLowerCase();
+      card.dataset.tier = L.tier === 'championship' ? 'championship' : 'local';
       const par = L.holes.reduce((a, h) => a + h.par, 0);
       const len = L.holes.reduce((a, h) => a + h.playLength, 0);
       const thumb = document.createElement('canvas');
       thumb.width = 300; thumb.height = 220;
+      thumb.setAttribute('aria-hidden', 'true');
       drawThumb(thumb, L);
       card.append(thumb);
-      card.insertAdjacentHTML('beforeend', `<div class="course-name">${esc(L.name)}${L.holes.length > 9 ? ` <span class="tag">${L.holes.length} holes</span>` : ''}</div><div class="course-meta">Par ${par} · ${feet(len).toLocaleString()} ft</div><div class="course-blurb">${esc(L.blurb)}</div><div class="course-record"></div>`);
+      card.insertAdjacentHTML('beforeend', `<div class="course-copy"><div class="course-name">${esc(L.name)}</div><div class="course-meta">${L.holes.length} holes · Par ${par}</div><div class="course-blurb">${esc(L.blurb)}</div><div class="course-record"></div></div>`);
+      card.title = `${L.name} · ${L.holes.length} holes · ${feet(len).toLocaleString()} ft. ${L.blurb}`;
       card.onclick = () => {
         if (cfg.course === L.id) return;
-        cfg.course = L.id;
-        allCards().forEach((c) => c.classList.toggle('active', c.dataset.id === L.id));
+        this.selectCourse(L.id);
         this.renderBoard();
         card.classList.add('loading');
         // let the highlight paint before the course is built
-        setTimeout(() => { this.h.onCourse(L.id); card.classList.remove('loading'); }, 30);
+        this.courseTimer = setTimeout(() => this.finishCoursePreview(), 30);
       };
       card.classList.toggle('active', L.id === cfg.course);
       cards.append(card);
     }
+    this.selectCourse(cfg.course);
+    let collection = 0;
+    const filterCourses = () => {
+      const query = $('course-search').value.trim().toLowerCase();
+      let shown = 0;
+      for (const card of allCards()) {
+        const matches = (!collection || card.dataset.tier === (collection === 1 ? 'local' : 'championship')) && card.dataset.search.includes(query);
+        card.classList.toggle('hidden', !matches);
+        if (matches) shown++;
+      }
+      $('local-heading').classList.toggle('hidden', ![...$('course-cards').children].some((c) => !c.classList.contains('hidden')));
+      $('champ-heading').classList.toggle('hidden', ![...$('champ-cards').children].some((c) => !c.classList.contains('hidden')));
+      $('course-empty').classList.toggle('hidden', shown > 0);
+      $('course-count').textContent = `${shown} course${shown === 1 ? '' : 's'}`;
+    };
+    segmented($('course-filter'), ['All', 'Neighborhood', 'Championship'], 0, (i) => { collection = i; filterCourses(); });
+    $('course-search').oninput = filterCourses;
+    filterCourses();
     const list = $('player-list');
     const renderPlayers = () => {
       list.innerHTML = '';
@@ -227,6 +256,7 @@ export class Hud {
     }));
     this.refreshRecords();
     $('start-btn').onclick = () => {
+      this.finishCoursePreview();
       const from = Object.values(WIND_FROM)[cfg.from];
       const config = {
         players: this.players(),
@@ -285,8 +315,30 @@ export class Hud {
 
   // A round started on another device: show its course as the selected one.
   selectCourse(id) {
+    clearTimeout(this.courseTimer);
+    this.courseTimer = null;
     this.cfg.course = id;
-    for (const c of [...$('course-cards').children, ...$('champ-cards').children]) c.classList.toggle('active', c.dataset.id === id);
+    for (const c of [...$('course-cards').children, ...$('champ-cards').children]) {
+      c.classList.remove('loading');
+      c.classList.toggle('active', c.dataset.id === id);
+      c.setAttribute('aria-pressed', String(c.dataset.id === id));
+    }
+    const course = this.h.courses.find((c) => c.id === id);
+    if (course) {
+      $('selected-course-name').textContent = course.name;
+      $('selected-course-meta').textContent = `${course.holes.length} holes · Par ${course.holes.reduce((n, h) => n + h.par, 0)} · ${feet(course.holes.reduce((n, h) => n + h.playLength, 0)).toLocaleString()} ft`;
+      $('selected-course-blurb').textContent = course.blurb;
+    }
+  }
+
+  // Starting immediately after a selection must use the chosen course, even if
+  // its deferred menu preview has not had a chance to build yet.
+  finishCoursePreview() {
+    if (this.courseTimer == null) return;
+    clearTimeout(this.courseTimer);
+    this.courseTimer = null;
+    this.h.onCourse(this.cfg.course);
+    for (const card of [...$('course-cards').children, ...$('champ-cards').children]) card.classList.remove('loading');
   }
 
   // Reflect the music switch after it was flipped from the keyboard.
@@ -322,9 +374,12 @@ export class Hud {
     }
     el.innerHTML = html;
     if (g) {
-      $('ghost-btn').onclick = () => this.h.onStart({
-        players: this.players(), weather: g.conditions.weather, time: g.conditions.time, wind: { ...g.conditions.wind }, ghost: g,
-      });
+      $('ghost-btn').onclick = () => {
+        this.finishCoursePreview();
+        this.h.onStart({
+          players: this.players(), weather: g.conditions.weather, time: g.conditions.time, wind: { ...g.conditions.wind }, ghost: g,
+        });
+      };
     }
   }
 

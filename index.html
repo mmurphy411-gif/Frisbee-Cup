@@ -64,32 +64,67 @@
 
     <div id="menu" class="overlay">
       <div class="sheet menu-sheet">
-        <h1>Frisbee Cup</h1>
-        <p class="tagline">Neighborhood disc golf. Pick a course and tee off.</p>
-        <h2>Course</h2>
-        <div id="course-cards"></div>
-        <h2>Championship courses</h2>
-        <div id="champ-cards"></div>
-        <div id="board" class="board"></div>
-        <h2>Players</h2>
-        <div id="player-count" class="seg"></div>
-        <div id="player-list"></div>
-        <div id="net-section" class="hidden">
-          <h2>Wi-Fi play</h2>
-          <div class="field"><label>Play together</label><div id="net-seg" class="seg"></div></div>
-          <div id="net-panel" class="net-panel hidden"></div>
+        <header class="club-header">
+          <div>
+            <div class="eyebrow"><span class="little-star">✳</span> Astra remaster</div>
+            <h1>Frisbee <em>Cup.</em></h1>
+            <p class="tagline">A little fresh air. A very good flying disc.</p>
+          </div>
+          <svg class="club-illustration" viewBox="0 0 240 128" aria-hidden="true">
+            <path d="M7 103C43 62 112 136 176 104S228 94 238 90" fill="none" stroke="#9daa81" stroke-width="2"/>
+            <path d="M18 78C64 35 142 94 169 50C189 17 132 4 127 34C123 59 157 54 181 31" fill="none" stroke="#667d66" stroke-width="1.8" stroke-dasharray="4 6"/>
+            <g transform="translate(185 36) rotate(-18)"><ellipse rx="41" ry="14" fill="#cf603e" stroke="#25463e" stroke-width="2"/><ellipse cy="-5" rx="41" ry="12" fill="#e9ac65" stroke="#25463e" stroke-width="2"/><ellipse cy="-5" rx="25" ry="6.5" fill="#efd482" stroke="#25463e" stroke-width="1.5"/><path d="M-6-5h12M0-8v6" stroke="#25463e" stroke-width="1.4"/></g>
+            <g fill="#25463e"><path d="m44 98 9-19 9 19z"/><path d="m46 88 7-18 7 18z"/><path d="M52 93h2v12H52z"/><path d="m209 108 9-20 9 20z"/><path d="m211 97 7-16 7 16z"/><path d="M217 102h2v10h-2z"/></g>
+            <g stroke="#cf603e" stroke-width="1.6"><path d="M73 20v10m-5-5h10M213 68v10m-5-5h10"/></g>
+            <path d="m105 105 3-8 3 8m-3-7v12" fill="none" stroke="#667d66" stroke-width="1.5"/>
+          </svg>
+        </header>
+        <div class="menu-content">
+          <section class="course-browser" aria-labelledby="course-heading">
+            <div class="section-heading"><h2 id="course-heading">Find your fairway</h2><span id="course-count" class="quiet-label" aria-live="polite"></span></div>
+            <div class="course-tools">
+              <div id="course-filter" class="seg" aria-label="Course collection"></div>
+              <input id="course-search" type="search" placeholder="Find a course…" aria-label="Search courses" autocomplete="off" />
+            </div>
+            <div class="course-shelf" tabindex="0" aria-label="Available courses">
+              <h3 id="local-heading" class="collection-label">Around the neighborhood</h3>
+              <div id="course-cards"></div>
+              <h3 id="champ-heading" class="collection-label">The championship collection</h3>
+              <div id="champ-cards"></div>
+              <p id="course-empty" class="hidden empty-search">No fairways by that name. Try another trail.</p>
+            </div>
+            <details class="records-details"><summary>Course records <span>Every round leaves a little legend.</span></summary><div id="board" class="board"></div></details>
+          </section>
+          <aside class="round-setup" aria-label="Set up your round">
+            <div class="selected-course">
+              <div class="eyebrow">Today's little adventure</div>
+              <h2 id="selected-course-name"></h2>
+              <div id="selected-course-meta"></div>
+              <p id="selected-course-blurb"></p>
+            </div>
+            <div class="section-heading players-heading"><h2>Your party</h2><div id="player-count" class="seg" aria-label="Number of players"></div></div>
+            <div id="player-list"></div>
+            <div id="net-section" class="hidden">
+              <div class="field"><label>Wi-Fi play</label><div id="net-seg" class="seg"></div></div>
+              <div id="net-panel" class="net-panel hidden"></div>
+            </div>
+            <details class="setup-details"><summary>Weather &amp; time <span>Set the mood</span></summary>
+              <div class="field"><label>Weather</label><div id="weather-seg" class="seg"></div></div>
+              <div class="field"><label>Wind</label><div id="wind-seg" class="seg"></div></div>
+              <div class="field"><label>Wind from</label><div id="winddir-seg" class="seg"></div></div>
+              <div class="field"><label>Time of day</label><div id="time-seg" class="seg"></div></div>
+            </details>
+            <details class="setup-details"><summary>Sound &amp; picture <span>Make yourself at home</span></summary>
+              <div class="field"><label>Music</label><div id="music-seg" class="seg"></div></div>
+              <div class="field"><label>Effects</label><div id="sfx-seg" class="seg"></div></div>
+              <div class="field"><label>Quality</label><div id="quality-seg" class="seg"></div></div>
+            </details>
+          </aside>
         </div>
-        <h2>Conditions</h2>
-        <div class="field"><label>Weather</label><div id="weather-seg" class="seg"></div></div>
-        <div class="field"><label>Wind</label><div id="wind-seg" class="seg"></div></div>
-        <div class="field"><label>Wind from</label><div id="winddir-seg" class="seg"></div></div>
-        <div class="field"><label>Time of day</label><div id="time-seg" class="seg"></div></div>
-        <h2>Sound</h2>
-        <div class="field"><label>Music</label><div id="music-seg" class="seg"></div></div>
-        <div class="field"><label>Effects</label><div id="sfx-seg" class="seg"></div></div>
-        <h2>Graphics</h2>
-        <div class="field"><label>Quality</label><div id="quality-seg" class="seg"></div></div>
-        <button id="start-btn" class="primary">Tee off</button>
+        <footer class="launch-bar">
+          <div><span class="launch-tip">Good company. Questionable trajectories.</span><span class="launch-how">Hold, pull back, flick forward. The rest is a small adventure.</span></div>
+          <button id="start-btn" class="primary">Tee off <span aria-hidden="true">↗</span></button>
+        </footer>
       </div>
     </div>
 

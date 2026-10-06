@@ -1,0 +1,13 @@
+Running browser checks…
+PASS  Menu Tab remains available to the browser
+PASS  Immediate course selection → Tee off uses the selected course — blossom
+PASS  Aim wheel tilt and scorecard/help Tab semantics
+PASS  Real pointer swing launches one finite, rendered throw — settled after 4.6 simulated seconds (aim)
+PASS  Dust, leaves and paper confetti render with valid shader programs
+PASS  End-hole card preserves native Tab
+PASS  Low and High quality buttons rebuild and render
+PASS  Representative courses rebuild; returning Horseshoe has bounded GPU resources — 95g/21t → 95g/21t → 95g/21t → 95g/21t → 95g/21t
+PASS  No browser runtime or shader errors during checks
+PASS  Finish on Horseshoe, ready to throw
+
+10/10 checks passed.

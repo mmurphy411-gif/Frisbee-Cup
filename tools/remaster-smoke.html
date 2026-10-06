@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Astra remaster · browser smoke checks</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 20px; color: #263e37; background: #f6eedb; font: 15px/1.5 system-ui, sans-serif; }
+  h1 { margin: 0 0 4px; font-size: 23px; }
+  p { margin: 0 0 12px; }
+  button { padding: 10px 18px; border: 0; border-radius: 8px; color: white; background: #315d49; font: inherit; cursor: pointer; }
+  button:disabled { opacity: .5; cursor: wait; }
+  pre { white-space: pre-wrap; padding: 16px; background: #fffaf0; border: 1px solid #d3c9af; border-radius: 8px; }
+  iframe { width: 100%; height: 720px; border: 1px solid #d3c9af; border-radius: 8px; background: #fffaf0; }
+</style>
+<h1>Astra remaster · browser smoke checks</h1>
+<p>Local test harness. Exercises the real game in the frame, then leaves Horseshoe ready to throw.</p>
+<button id="run">Run checks</button>
+<pre id="results" aria-live="polite">Ready. Start the checks once the game below has loaded.</pre>
+<iframe id="game" src="/" title="Frisbee Cup test game"></iframe>
+<script type="module">
+  const frame = document.getElementById('game');
+  const output = document.getElementById('results');
+  const run = document.getElementById('run');
+  const pause = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+  const check = (ok, message) => { if (!ok) throw new Error(message); };
+
+  run.onclick = async () => {
+    run.disabled = true;
+    output.textContent = 'Running browser checks…\n';
+    const report = window.__smokeResults = { status: 'running', checks: [], memory: [], errors: [] };
+    const say = (line) => { output.textContent += `${line}\n`; };
+    const test = async (name, fn) => {
+      try { const detail = await fn(); report.checks.push({ name, pass: true, detail }); say(`PASS  ${name}${detail ? ` — ${detail}` : ''}`); }
+      catch (error) { report.checks.push({ name, pass: false, error: error.message }); say(`FAIL  ${name} — ${error.message}`); }
+    };
+    let w, game, renderer, doc, oldError, onError, onReject;
+    try {
+      for (let i = 0; i < 300 && !frame.contentWindow.__renderer; i++) await pause(50);
+      w = frame.contentWindow; doc = w.document; game = w.__fc; renderer = w.__renderer;
+      check(game && renderer && w.__advance && w.__course, 'Game test hooks did not become ready within 15 seconds.');
+      oldError = w.console.error;
+      w.console.error = (...args) => { report.errors.push(args.map(String).join(' ')); oldError.apply(w.console, args); };
+      onError = (event) => report.errors.push(event.message);
+      onReject = (event) => report.errors.push(String(event.reason));
+      w.addEventListener('error', onError); w.addEventListener('unhandledrejection', onReject);
+      const $ = (id) => doc.getElementById(id);
+      const canvas = $('scene');
+      const click = (id) => { const el = $(id); check(el, `Missing #${id}`); el.click(); };
+      const segment = (id, label) => {
+        const button = [...$(id).querySelectorAll('button')].find((b) => b.textContent.trim() === label);
+        check(button, `Missing ${id} option “${label}”`); button.click(); return button;
+      };
+      const card = (id) => {
+        const el = doc.querySelector(`.course-card[data-id="${id}"]`);
+        check(el, `Missing ${id} course card`); return el;
+      };
+      const key = (code, type = 'keydown', target = canvas) => {
+        const event = new w.KeyboardEvent(type, { code, key: code === 'Tab' ? 'Tab' : code, bubbles: true, cancelable: true });
+        target.dispatchEvent(event); return event;
+      };
+      const tab = () => { const event = key('Tab'); key('Tab', 'keyup'); return event; };
+      const menu = () => { game.hud.toggleHelp(false); game.hud.hideScorecard(); game.toMenu(); };
+      const startHorseshoe = () => {
+        menu(); w.__course('horseshoe'); card('horseshoe').click();
+        segment('player-count', '1'); segment('wind-seg', 'Calm');
+        segment('weather-seg', 'Sunny'); segment('time-seg', 'Midday');
+        click('start-btn'); w.__advance(4.1);
+        check(game.state === 'aim' && game.course.id === 'horseshoe', `Expected Horseshoe aim, got ${game.course.id}/${game.state}`);
+      };
+
+      await test('Menu Tab remains available to the browser', () => {
+        menu(); check(!tab().defaultPrevented, 'Menu prevented the native Tab action.');
+        check(!game.controls.keys.has('Tab'), 'Tab remained held after keyup.');
+      });
+      await test('Immediate course selection → Tee off uses the selected course', async () => {
+        const target = game.course.id === 'horseshoe' ? 'blossom' : 'horseshoe';
+        card(target).click(); click('start-btn'); // Deliberately no await: preview timer has not fired.
+        check(game.course.id === target, `Started ${game.course.id} instead of ${target}.`);
+        check(game.state === 'intro', `Expected intro after Tee off, got ${game.state}.`);
+        await pause(80);
+        check(game.course.id === target && game.hud.courseTimer == null, 'A stale course-preview timer survived Tee off.');
+        return target;
+      });
+      await test('Aim wheel tilt and scorecard/help Tab semantics', () => {
+        startHorseshoe();
+        const before = game.aim.hyzer;
+        const wheel = (deltaY) => {
+          const event = new w.WheelEvent('wheel', { deltaY, bubbles: true, cancelable: true });
+          canvas.dispatchEvent(event); return event;
+        };
+        check(wheel(100).defaultPrevented, 'Aim wheel was not handled.');
+        check(Math.abs(game.aim.hyzer - before + 3 * Math.PI / 180) < 1e-10, 'One wheel notch did not tilt by three degrees.');
+        wheel(-100); check(Math.abs(game.aim.hyzer - before) < 1e-10, 'Reverse wheel did not restore tilt.');
+        check(tab().defaultPrevented && game.hud.scorecardOpen(), 'Aim Tab did not open the scorecard.');
+        check(tab().defaultPrevented && !game.hud.scorecardOpen(), 'Second Tab did not close the scorecard.');
+        key('KeyH'); key('KeyH', 'keyup');
+        check(!$('help').classList.contains('hidden'), 'H did not open help.');
+        check(!tab().defaultPrevented && !game.hud.scorecardOpen(), 'Help captured Tab or opened the scorecard behind it.');
+        click('help-close'); check($('help').classList.contains('hidden'), 'Help did not close.');
+      });
+      await test('Real pointer swing launches one finite, rendered throw', async () => {
+        check(game.state === 'aim', `Pointer test needs aim; got ${game.state}.`);
+        // A short test shot avoids confusing a legitimate roof/water penalty with
+        // duplicate input. Select the real Putter/Putt controls before the swing.
+        key('Digit3'); key('Digit3', 'keyup');
+        for (let i = 0; i < 3 && game.aim.mode !== 2; i++) { key('KeyG'); key('KeyG', 'keyup'); }
+        check(game.aim.disc === 2 && game.aim.mode === 2, 'Putter/Putt keyboard selection failed.');
+        const player = game.current;
+        const pointer = (type, y, buttons = 1) => canvas.dispatchEvent(new w.PointerEvent(type, {
+          pointerId: 91, pointerType: 'mouse', isPrimary: true, button: 0, buttons,
+          clientX: 520, clientY: y, bubbles: true, cancelable: true,
+        }));
+        pointer('pointerdown', 250); pointer('pointermove', 450);
+        await pause(90); pointer('pointermove', 240); pointer('pointerup', 240, 0);
+        check(game.state === 'flight', `Swing ended in ${game.state} instead of flight.`);
+        check(player.strokes === 1, `Expected one stroke on release; got ${player.strokes}.`);
+        w.__advance(0.4);
+        check(game.disc.mesh.visible, 'Flying disc was not rendered.');
+        const finite = () => ['x', 'y', 'z'].every((axis) => Number.isFinite(game.flight.p[axis]));
+        check(finite(), 'Disc coordinates were non-finite after launch.');
+        let elapsed = 0.4;
+        while (['flight', 'settle'].includes(game.state) && elapsed < 40) {
+          w.__advance(0.2); elapsed += 0.2; check(finite(), 'Disc coordinates became non-finite in flight.');
+        }
+        check(!['flight', 'settle'].includes(game.state), 'Disc did not settle within 40 simulated seconds.');
+        check(player.strokes === 1, `A single unobstructed test throw recorded ${player.strokes} strokes.`);
+        return `settled after ${elapsed.toFixed(1)} simulated seconds (${game.state})`;
+      });
+      await test('Dust, leaves and paper confetti render with valid shader programs', () => {
+        const p = game.focus;
+        game.effects.dust(p.x, p.y, p.z, 1);
+        game.effects.leaves(p.x, p.y + 1, p.z, ['#e5aa5c', '#76996b'], 12);
+        game.effects.confetti(p.x, p.y, p.z);
+        w.__advance(0.05);
+        check(game.effects.points.visible, 'Particle batch was not visible.');
+        const kinds = new Set(game.effects.p.filter((p) => p.life > 0).map((p) => p.kind));
+        check([1, 3, 4].every((kind) => kinds.has(kind)), `Expected dust/leaves/confetti; got ${[...kinds]}.`);
+        const failed = renderer.info.programs.filter((p) => p.diagnostics?.runnable === false);
+        check(!failed.length, `${failed.length} WebGL program(s) failed to compile/link.`);
+      });
+      await test('End-hole card preserves native Tab', () => {
+        // A UI fixture, not a claim that the pointer throw completed the hole.
+        game.endHole();
+        check(game.state === 'card' && game.hud.scorecardOpen(), 'End-hole fixture did not show its card.');
+        check(!tab().defaultPrevented, 'End-hole card prevented native Tab.');
+        menu();
+      });
+      await test('Low and High quality buttons rebuild and render', async () => {
+        for (const label of ['Low', 'High']) {
+          const button = segment('quality-seg', label);
+          for (let i = 0; i < 100 && button.classList.contains('loading'); i++) await pause(30);
+          check(!button.classList.contains('loading'), `${label} quality did not finish rebuilding.`);
+          w.__advance(0.05);
+          const ratio = renderer.getPixelRatio();
+          check(label === 'Low' ? ratio === 1 : ratio >= 1.5 && ratio <= 2.5, `${label} has unexpected pixel ratio ${ratio}.`);
+        }
+      });
+      await test('Representative courses rebuild; returning Horseshoe has bounded GPU resources', () => {
+        menu(); w.__course('horseshoe'); w.__advance(0.1);
+        const position = game.camera.position.clone(), quaternion = game.camera.quaternion.clone();
+        const snapshot = (label) => {
+          // Fixed view prevents different frustum visibility from changing the comparison.
+          game.camera.position.copy(position); game.camera.quaternion.copy(quaternion);
+          renderer.render(game.scene, game.camera);
+          const sample = { label, geometries: renderer.info.memory.geometries, textures: renderer.info.memory.textures };
+          report.memory.push(sample); return sample;
+        };
+        const base = snapshot('horseshoe baseline');
+        for (const id of ['blossom', 'marina', 'mesa', 'frostwood']) {
+          check(w.__course(id) === id && game.course.id === id, `${id} was not selected.`);
+          w.__advance(0.05); // Render each representative course and its materials.
+          w.__course('horseshoe');
+          const sample = snapshot(`horseshoe after ${id}`);
+          // No player round is restarted within this loop: marker lifetime is not part of this check.
+          check(sample.geometries <= base.geometries + 16, `${id} cycle grew geometries ${base.geometries} → ${sample.geometries}.`);
+          check(sample.textures <= base.textures + 2, `${id} cycle grew textures ${base.textures} → ${sample.textures}.`);
+        }
+        return report.memory.map((m) => `${m.geometries}g/${m.textures}t`).join(' → ');
+      });
+      await test('No browser runtime or shader errors during checks', () => {
+        check(!report.errors.length, report.errors.join('\n').slice(0, 1800));
+        check(!renderer.getContext().isContextLost(), 'WebGL context was lost.');
+      });
+      await test('Finish on Horseshoe, ready to throw', () => { startHorseshoe(); });
+    } catch (error) {
+      report.checks.push({ name: 'Harness setup', pass: false, error: error.message });
+      say(`FAIL  Harness setup — ${error.stack || error.message}`);
+    } finally {
+      if (w && oldError) w.console.error = oldError;
+      if (w && onError) w.removeEventListener('error', onError);
+      if (w && onReject) w.removeEventListener('unhandledrejection', onReject);
+      const failed = report.checks.filter((result) => !result.pass).length;
+      report.status = failed ? 'failed' : 'passed';
+      say(`\n${report.checks.length - failed}/${report.checks.length} checks passed${failed ? `; ${failed} failed.` : '.'}`);
+      run.disabled = false;
+    }
+  };
+</script>
+</html>

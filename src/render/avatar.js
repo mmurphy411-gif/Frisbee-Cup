@@ -4,7 +4,7 @@
 // torso and a head that follows the action.
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { discGeometry } from './actors.js';
+import { makeDiscMesh } from './actors.js';
 
 const UP = new THREE.Vector3(0, 1, 0);
 const DEG = Math.PI / 180;
@@ -130,6 +130,7 @@ class Part {
 const shade = (hex, k) => new THREE.Color(hex).multiplyScalar(k).getStyle();
 const mixc = (a, b, t) => new THREE.Color(a).lerp(new THREE.Color(b), t).getStyle();
 const PANTS = '#3a4150';
+const CREAM = '#fff3d5';
 
 // Modelled at 1/HEAD scale around the skull; the neck point is the origin.
 function buildHead(L) {
@@ -141,10 +142,14 @@ function buildHead(L) {
   for (const s of [-1, 1]) {
     p.add(G.gem, skin, C(-0.005, -0.012, s * 0.128), [0, 0, 0], [0.024, 0.04, 0.02]); // ears
     p.add(G.gem, '#1d2430', C(0.122, 0.012, s * 0.05), [0, 0, 0], [0.014, 0.026, 0.02]); // eyes
-    p.add(G.box, shade(hair, 0.9), C(0.128, 0.052, s * 0.052), [s * 0.12, 0, 0], [0.016, 0.013, 0.05]); // brows
+    p.add(G.gem, CREAM, C(0.134, 0.02, s * 0.052), [0, 0, 0], [0.003, 0.007, 0.005]); // bright eyes
+    p.add(G.box, shade(hair, 0.9), C(0.128, 0.052, s * 0.052), [s * 0.12, 0, 0], [0.016, 0.01, 0.045]); // brows
+    p.add(G.gem, mixc(skin, '#db8172', 0.23), C(0.12, -0.027, s * 0.085), [0, 0, 0], [0.009, 0.022, 0.021]); // sun-kissed cheeks
   }
   p.add(G.cone, shade(skin, 0.94), C(0.142, -0.022, 0), [0, 0, -Math.PI / 2], [0.022, 0.05, 0.022]); // nose
-  p.add(G.box, mixc(skin, '#7a3b34', 0.65), C(0.124, -0.072, 0), [0, 0, 0.25], [0.012, 0.011, 0.05]); // mouth
+  const smile = mixc(skin, '#7a3b34', 0.65);
+  p.rod(smile, C(0.134, -0.067, -0.026), C(0.137, -0.076, 0), 0.0045);
+  p.rod(smile, C(0.137, -0.076, 0), C(0.134, -0.067, 0.026), 0.0045);
 
   // hair
   if (L.hair !== 'none') p.add(G.hair, hair, C(-0.012, 0.012, 0), [0, 0, 0.55], [0.15, 0.163, 0.139]);
@@ -171,6 +176,8 @@ function buildHead(L) {
     p.add(G.dome, hat, C(-0.008, 0.03, 0), [0, 0, 0], [0.152, 0.13, 0.142]);
     p.add(G.gem, hat, C(-0.008, 0.158, 0), [0, 0, 0], [0.015, 0.012, 0.015]);
     p.add(G.cyl, hat, C(0.14, 0.045, 0), [0, 0, -0.2], [0.085, 0.013, 0.1]);
+    p.add(G.cyl, CREAM, C(0.124, 0.092, 0), [0, 0, -Math.PI / 2], [0.025, 0.006, 0.025]); // club pin
+    p.add(G.box, L.color, C(0.129, 0.092, 0), [0, 0, 0], [0.006, 0.025, 0.009]);
   } else if (L.hat === 'visor') {
     p.add(G.band, hat, C(0, 0.06, 0), [0, 0, 0.12], [0.148, 0.045, 0.137]);
     p.add(G.cyl, hat, C(0.145, 0.05, 0), [0, 0, -0.2], [0.085, 0.013, 0.1]);
@@ -197,8 +204,13 @@ function buildTorso(L, side) {
     [0.35, 0.128 * k, 0.176 * k, 0.012], [0.43, 0.118 * k, 0.182 * k, 0.006], [0.5, 0.092, 0.15 * k], [0.55, 0.058, 0.075],
   ], 10), shirt);
   for (const s of [-1, 1]) p.add(G.ico, shirt, [0, 0.43, s * 0.19], [0, 0, 0], [0.068, 0.062, 0.068]); // shoulders
-  p.add(G.ring, trim, [0.006, 0.535, 0], [Math.PI / 2, 0, 0], [0.062, 0.07, 0.07]); // collar
+  // Retro club jerseys, with a cream yoke and a little embroidered sun badge.
+  p.own(loft([[0.398, 0.125 * k, 0.182 * k, 0.009], [0.425, 0.121 * k, 0.185 * k, 0.007]], 10), CREAM);
+  p.add(G.ring, CREAM, [0.006, 0.535, 0], [Math.PI / 2, 0, 0], [0.062, 0.07, 0.07]); // collar
   p.add(G.box, trim, [0.105 * k, 0.48, 0], [0, 0, -0.5], [0.012, 0.07, 0.035]); // placket
+  p.add(G.cyl, CREAM, [0.128 * k, 0.325, -0.058 * k], [0, 0, -Math.PI / 2], [0.032, 0.008, 0.032]);
+  p.add(G.box, trim, [0.134 * k, 0.325, -0.058 * k], [Math.PI / 4, 0, 0], [0.005, 0.036, 0.009]);
+  p.add(G.box, trim, [0.134 * k, 0.325, -0.058 * k], [-Math.PI / 4, 0, 0], [0.005, 0.036, 0.009]);
   p.own(loft([[-0.05, 0.116 * k, 0.156 * k], [0.0, 0.114 * k, 0.153 * k]], 10), trim); // hem
   // disc bag on the off-side hip, strap over the throwing shoulder
   const bz = -side * 0.215 * k;
@@ -234,7 +246,10 @@ function buildShin(L) {
   const p = new Part(), k = L.build, long = L.legs === 'long', leg = long ? PANTS : L.skin;
   p.own(limbLoft([[0, 0.05 * k], [0.06, 0.057 * k], [0.15, 0.058 * k], [0.28, 0.042 * k], [SHIN - 0.04, 0.036 * k]]), leg);
   if (long) p.own(limbLoft([[0.25, 0.05 * k], [SHIN - 0.02, 0.048 * k]]), shade(PANTS, 0.85)); // trouser hem
-  else p.own(limbLoft([[0.29, 0.043], [SHIN + 0.01, 0.042]]), '#f4f4f0'); // sock
+  else {
+    p.own(limbLoft([[0.29, 0.043], [SHIN + 0.01, 0.042]]), CREAM); // sock
+    for (const y of [0.303, 0.327]) p.own(limbLoft([[y, 0.044], [y + 0.012, 0.044]]), L.color); // club stripes
+  }
   return p.mesh();
 }
 
@@ -247,6 +262,7 @@ function buildFoot(L) {
     L.shoes, [0, 0, 0], [0, 0, -Math.PI / 2]);
   p.own(shoe([[-0.082, 0.012, 0.045, 0.014], [0.0, 0.013, 0.054, 0.013], [0.17, 0.011, 0.04, 0.013], [0.2, 0.008, 0.022, 0.014]]),
     trim, [0, 0, 0], [0, 0, -Math.PI / 2]); // sole
+  for (let i = 0; i < 3; i++) p.add(G.box, CREAM, [0.02 + i * 0.022, 0.095 - i * 0.005, 0], [0, 0, -0.16], [0.009, 0.006, 0.065]); // laces
   return p.mesh();
 }
 
@@ -273,15 +289,17 @@ function numberDecal(n) {
   const c = document.createElement('canvas');
   c.width = c.height = 128;
   const g = c.getContext('2d');
-  g.font = 'bold 96px Trebuchet MS, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
-  g.lineWidth = 10; g.strokeStyle = 'rgba(20,30,40,0.55)'; g.strokeText(String(n), 64, 70);
-  g.fillStyle = '#ffffff'; g.fillText(String(n), 64, 70);
+  g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.fillStyle = CREAM; g.font = 'bold 16px Trebuchet MS, sans-serif'; g.fillText('FLIGHT CLUB', 64, 15);
+  g.font = 'bold 88px Trebuchet MS, sans-serif';
+  g.lineWidth = 8; g.strokeStyle = 'rgba(20,30,40,0.45)'; g.strokeText(String(n), 64, 76);
+  g.fillText(String(n), 64, 76);
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;
   const m = new THREE.Mesh(new THREE.PlaneGeometry(0.16, 0.16), new THREE.MeshLambertMaterial({
     map: tex, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2,
   }));
-  m.position.set(-0.14, 0.3, 0);
+  m.position.set(-0.14, 0.285, 0);
   m.rotation.y = -Math.PI / 2;
   return m;
 }
@@ -409,8 +427,7 @@ export class Avatar {
     this.thigh = [buildThigh(look), buildThigh(look)];
     this.shin = [buildShin(look), buildShin(look)];
     this.foot = [buildFoot(look), buildFoot(look)];
-    this.held = new THREE.Mesh(discGeometry(), new THREE.MeshLambertMaterial({ color: look.color, side: THREE.DoubleSide }));
-    this.held.castShadow = true;
+    this.held = makeDiscMesh(look.color);
     this.group.add(this.pelvis, this.torso, this.head, ...this.upper, ...this.fore, ...this.thigh, ...this.shin, ...this.foot, this.held);
     this.group.visible = false;
     scene.add(this.group);

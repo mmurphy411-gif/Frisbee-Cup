@@ -129,7 +129,7 @@ function showCourse(id, force = false) {
   game.setCourse(entry, scenery);
   const theme = entry.layout.theme;
   const drift = theme.ambientLeaves;
-  effects.setAmbient(Array.isArray(drift) ? drift : drift ? theme.foliage.broad : null);
+  effects.setAmbient(Array.isArray(drift) ? drift : drift ? theme.foliage.broad : null, theme.season === 'winter' ? 0 : 3);
   store.set('course', entry.id);
 }
 

@@ -31,15 +31,15 @@ export const WEATHER = {
 export const TIMES = {
   morning: {
     name: 'Morning', sun: [0.72, 0.36, 0.6], sunColor: '#ffd7a6', sunI: 2.5,
-    zenith: '#68acef', horizon: '#ffdcbc', hemiSky: '#dfeeff', hemiGround: '#7d8a56', hemiI: 1.08, glow: 0.12,
+    zenith: '#75b6d6', horizon: '#ffe1b5', hemiSky: '#e3eff1', hemiGround: '#85906a', hemiI: 1.08, glow: 0.12,
   },
   midday: {
     name: 'Midday', sun: [-0.36, 0.84, 0.4], sunColor: '#fff4e2', sunI: 2.8,
-    zenith: '#4a9be8', horizon: '#cfe7ff', hemiSky: '#e3f2ff', hemiGround: '#6f8f58', hemiI: 1.2, glow: 0,
+    zenith: '#65aecb', horizon: '#e0eee2', hemiSky: '#e8f2ee', hemiGround: '#7b9065', hemiI: 1.2, glow: 0,
   },
   evening: {
     name: 'Evening', sun: [-0.8, 0.22, 0.57], sunColor: '#ffa65e', sunI: 2.9,
-    zenith: '#5871c0', horizon: '#ffb47a', hemiSky: '#ffd5ae', hemiGround: '#7a6650', hemiI: 1.25, glow: 1,
+    zenith: '#7884b9', horizon: '#ffc18c', hemiSky: '#ffdfb9', hemiGround: '#7a6650', hemiI: 1.25, glow: 1,
   },
 };
 
@@ -82,6 +82,15 @@ function cloudGeometry(seed) {
   const geo = mergeGeometries(parts);
   const pos = geo.attributes.position;
   for (let i = 0; i < pos.count; i++) if (pos.getY(i) < 0) pos.setY(i, pos.getY(i) * 0.3); // flat bottoms
+  // A cool underside and warm crown read like cut-paper clouds. Baked once;
+  // the original two instanced batches and geometry budget stay the same.
+  const colors = new Float32Array(pos.count * 3);
+  const low = new THREE.Color('#b5cbd3'), high = new THREE.Color('#fff7df'), color = new THREE.Color();
+  for (let i = 0; i < pos.count; i++) {
+    color.copy(low).lerp(high, THREE.MathUtils.clamp((pos.getY(i) + 0.15) / 0.85, 0, 1));
+    color.toArray(colors, i * 3);
+  }
+  geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
   geo.computeVertexNormals();
   return geo;
 }
@@ -117,7 +126,7 @@ export class Sky {
     scene.add(this.dome);
 
     // puffy low-poly clouds
-    this.cloudMat = new THREE.MeshLambertMaterial({ color: '#ffffff', emissive: '#ffffff', emissiveIntensity: 0.35, flatShading: true, fog: false });
+    this.cloudMat = new THREE.MeshLambertMaterial({ color: '#ffffff', emissive: '#ffffff', emissiveIntensity: 0.22, vertexColors: true, flatShading: true, fog: false });
     this.cloudMeshes = [cloudGeometry(5), cloudGeometry(17)].map((g) => {
       const m = new THREE.InstancedMesh(g, this.cloudMat, MAX_CLOUDS / 2);
       m.frustumCulled = false;
