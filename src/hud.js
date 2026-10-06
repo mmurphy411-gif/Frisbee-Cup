@@ -90,17 +90,13 @@ function drawThumb(canvas, L) {
   for (const a of L.sand) { trace(a.poly.pts, true); g.fill(); }
   g.fillStyle = T.ground.green ?? T.ground.lawn;
   for (const a of L.greens || []) { trace(a, true); g.fill(); }
-  for (const t of L.trees) {
-    g.fillStyle = t.color;
-    g.globalAlpha = 0.55;
-    g.beginPath(); g.arc(X(t.x), Z(t.z), Math.max(0.8, t.r * s * 0.8), 0, Math.PI * 2); g.fill();
-  }
-  g.globalAlpha = 1;
-  g.fillStyle = g.strokeStyle = T.water.deep;
+  const water = g.createLinearGradient(0, 0, W, H);
+  water.addColorStop(0, T.water.shallow); water.addColorStop(1, T.water.deep);
+  g.fillStyle = g.strokeStyle = water;
   for (const w of L.water) {
     if (w.kind === 'creek') { trace(w.path.pts); g.lineWidth = Math.max(1.5, w.width * s * 1.6); g.stroke(); }
     else if (w.poly) { trace(w.poly.pts, true); g.fill(); }
-    else { g.beginPath(); g.arc(X(w.circle.x), Z(w.circle.z), 12 * s, 0, Math.PI * 2); g.fill(); }
+    else { g.beginPath(); g.arc(X(w.circle.x), Z(w.circle.z), w.circle.r * s, 0, Math.PI * 2); g.fill(); }
   }
   g.strokeStyle = '#4d5157';
   for (const r of L.roads) { trace(r.pts); g.lineWidth = Math.max(1.5, r.width * s); g.stroke(); }
@@ -108,6 +104,13 @@ function drawThumb(canvas, L) {
     g.save(); g.translate(X(h.cx), Z(h.cz)); g.rotate(h.ang);
     g.fillStyle = h.roofColor; g.fillRect(-h.hu * s, -h.hv * s, h.hu * 2 * s, h.hv * 2 * s);
     g.restore();
+  }
+  for (const t of L.trees) {
+    const x = X(t.x), z = Z(t.z), r = Math.max(0.8, t.r * s * 0.8);
+    g.fillStyle = 'rgba(18,46,34,0.22)';
+    g.beginPath(); g.arc(x + r * 0.55, z + r * 0.7, r, 0, Math.PI * 2); g.fill();
+    g.fillStyle = t.color;
+    g.beginPath(); g.arc(x, z, r, 0, Math.PI * 2); g.fill();
   }
   g.strokeStyle = 'rgba(255,255,255,0.95)'; g.lineWidth = 1.6;
   for (const hole of L.holes) { trace(hole.route); g.stroke(); }

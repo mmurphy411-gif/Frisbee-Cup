@@ -8,13 +8,30 @@ export const U = {
   uSnow: { value: 0 },
   uSunDir: { value: new THREE.Vector3(-0.4, 0.85, 0.4).normalize() },
   uSunColor: { value: new THREE.Color('#fff4e0') },
-  uSkyColor: { value: new THREE.Color('#cfe8ff') },
+  uZenith: { value: new THREE.Color() },
+  uHorizon: { value: new THREE.Color() },
+  uSunVis: { value: 1 },
   uGlow: { value: 0 }, // lit windows and lamps towards evening
   // see-through: scenery between the camera and what it looks at is dithered away
   uSee: { value: 0 }, // strength, 0 (off) to 1
   uSeeTo: { value: new THREE.Vector3(0, 0, -1) }, // end of the sight line, in view space (it starts at the camera)
   uSeeUp: { value: new THREE.Vector3(0, 1, 0) }, // world up, in view space
 };
+
+// The sky and its water reflection use the same palette; no reflection texture or pass.
+export const SKY_COLOR = /* glsl */ `
+uniform vec3 uZenith;
+uniform vec3 uHorizon;
+uniform vec3 uSunDir;
+uniform vec3 uSunColor;
+uniform float uSunVis;
+vec3 skyColor( vec3 d ) {
+  float facing = clamp( dot( d.xz, uSunDir.xz ) * 0.5 + 0.5, 0.0, 1.0 );
+  float warmth = facing * facing * ( 1.0 - uSunDir.y ) * uSunVis * 0.3;
+  vec3 horizon = mix( uHorizon, uSunColor, warmth );
+  return mix( horizon, uZenith, pow( max( d.y, 0.0 ), 0.48 ) );
+}
+`;
 
 // Point the sight line from the camera towards `target`, at most `reach` metres long.
 const _to = new THREE.Vector3();

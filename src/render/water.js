@@ -1,7 +1,7 @@
 // Animated water: lakes and ponds (a baked depth map gives shallows and shoreline
 // foam), flowing creeks, and backyard pools.
 import * as THREE from 'three';
-import { U } from './shared.js';
+import { U, SKY_COLOR } from './shared.js';
 
 const VERT = /* glsl */ `
 varying vec3 vWorld;
@@ -25,9 +25,7 @@ uniform float uWidth;
 uniform vec3 uShallow;
 uniform vec3 uDeep;
 uniform vec3 uFoam;
-uniform vec3 uSkyColor;
-uniform vec3 uSunDir;
-uniform vec3 uSunColor;
+${SKY_COLOR}
 varying vec3 vWorld;
 varying vec2 vUv;
 #include <common>
@@ -54,7 +52,10 @@ void main() {
   vec3 v = normalize( cameraPosition - vWorld );
   float fres = pow( 1.0 - clamp( dot( n, v ), 0.0, 1.0 ), 4.0 );
   vec3 col = mix( uShallow, uDeep, smoothstep( 0.0, 2.2, depth ) );
-  col = mix( col, uSkyColor, 0.12 + 0.6 * fres );
+  // Intersecting wave slopes suggest shallow caustics without another texture sample.
+  float caustic = pow( max( 0.0, 1.0 - abs( grad.x + grad.y ) ), 8.0 );
+  col += uShallow * caustic * 0.16 * ( 1.0 - smoothstep( 0.3, 2.2, depth ) ) * uSunVis;
+  col = mix( col, skyColor( reflect( -v, n ) ), 0.12 + 0.7 * fres );
   vec3 h = normalize( uSunDir + v );
   col += uSunColor * pow( clamp( dot( n, h ), 0.0, 1.0 ), 220.0 ) * 2.4;
   float edge = 1.0 - smoothstep( 0.0, 0.3, depth );
@@ -78,7 +79,7 @@ function material(defines, colors, extra = {}) {
     uShallow: { value: new THREE.Color(colors.shallow) }, uDeep: { value: new THREE.Color(colors.deep) },
     uFoam: { value: new THREE.Color(colors.foam) },
   }]);
-  Object.assign(uniforms, { uTime: U.uTime, uSunDir: U.uSunDir, uSunColor: U.uSunColor, uSkyColor: U.uSkyColor, uDepth: { value: null } });
+  Object.assign(uniforms, { uTime: U.uTime, uSunDir: U.uSunDir, uSunColor: U.uSunColor, uZenith: U.uZenith, uHorizon: U.uHorizon, uSunVis: U.uSunVis, uDepth: { value: null } });
   for (const [k, v] of Object.entries(extra)) uniforms[k].value = v;
   return new THREE.ShaderMaterial({
     defines, uniforms, vertexShader: VERT, fragmentShader: FRAG,

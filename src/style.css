@@ -242,7 +242,7 @@ kbd { font: inherit; font-size: 12px; font-weight: 700; background: #fff; border
   .launch-tip { font-size: 14px; }
   .launch-how { font-size: 10px; max-width: 250px; }
   #minimap { width: 150px; height: 178px; }
-  #angles { display: none; }
+  #angles { width: 150px; height: 58px; } /* smaller, but tilt and loft stay readable */
   #player-card { top: 92px; left: 14px; transform: none; }
   #toast { font-size: 24px; }
 }
@@ -277,13 +277,13 @@ kbd { font: inherit; font-size: 12px; font-weight: 700; background: #fff; border
   #minimap { width: 120px; height: 142px; }
   #wind-card { gap: 3px; padding: 5px 8px; font-size: 12px; }
   #wind-arrow { width: 31px; height: 31px; }
-  #shot-panel { left: 8px; right: 8px; bottom: 8px; padding: 8px; }
+  #shot-panel { left: 8px; right: 8px; bottom: 8px; padding: 8px; flex-wrap: wrap; justify-content: center; gap: 4px; }
   .shot-rows { width: 100%; gap: 5px; }
   .row { gap: 4px; }
   .chip { font-size: 10px; padding: 5px 6px; min-height: 30px; }
   .disc-btn { font-size: 11px; min-width: 0; flex: 1; padding: 5px 7px; }
   .disc-btn .nums { font-size: 9px; }
-  #swing { right: 8px; bottom: 117px; min-width: 130px; padding: 8px; gap: 7px; }
+  #swing { right: 8px; bottom: 183px; min-width: 130px; padding: 8px; gap: 7px; }
   #swing-track { height: 90px; width: 14px; }
   #swing-label { font-size: 11px; }
   #swing-label small { font-size: 10px; }

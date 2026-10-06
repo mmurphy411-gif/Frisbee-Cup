@@ -3,7 +3,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { mulberry32 } from '../sim/rng.js';
-import { U } from './shared.js';
+import { U, SKY_COLOR } from './shared.js';
 
 export const WEATHER = {
   sunny: {
@@ -52,17 +52,13 @@ void main() {
 }`;
 
 const DOME_F = /* glsl */ `
-uniform vec3 uZenith;
-uniform vec3 uHorizon;
+${SKY_COLOR}
 uniform vec3 uGround;
-uniform vec3 uSunDir;
-uniform vec3 uSunColor;
-uniform float uSunVis;
 varying vec3 vDir;
 void main() {
   vec3 d = normalize( vDir );
   float h = d.y;
-  vec3 col = h > 0.0 ? mix( uHorizon, uZenith, pow( h, 0.6 ) ) : mix( uHorizon, uGround, pow( min( -h * 3.0, 1.0 ), 0.5 ) );
+  vec3 col = mix( skyColor( d ), uGround, pow( clamp( -h * 3.0, 0.0, 1.0 ), 0.5 ) );
   float s = max( dot( d, uSunDir ), 0.0 );
   col += uSunColor * uSunVis * ( smoothstep( 0.9994, 0.9997, s ) * 1.6 + pow( s, 160.0 ) * 0.5 + pow( s, 10.0 ) * 0.16 );
   gl_FragColor = vec4( col, 1.0 );
@@ -116,8 +112,8 @@ export class Sky {
       new THREE.ShaderMaterial({
         vertexShader: DOME_V, fragmentShader: DOME_F, side: THREE.BackSide, depthWrite: false, fog: false,
         uniforms: {
-          uZenith: { value: new THREE.Color() }, uHorizon: { value: new THREE.Color() }, uGround: { value: new THREE.Color() },
-          uSunDir: U.uSunDir, uSunColor: U.uSunColor, uSunVis: { value: 1 },
+          uZenith: U.uZenith, uHorizon: U.uHorizon, uGround: { value: new THREE.Color() },
+          uSunDir: U.uSunDir, uSunColor: U.uSunColor, uSunVis: U.uSunVis,
         },
       }),
     );
@@ -194,7 +190,6 @@ export class Sky {
     this.scene.fog.color.copy(horizon);
     this.scene.fog.near = w.fog[0];
     this.scene.fog.far = w.fog[1];
-    U.uSkyColor.value.copy(horizon).lerp(zenith, 0.35);
 
     this.sunDir.set(...t.sun).normalize();
     U.uSunColor.value.set(t.sunColor).lerp(new THREE.Color('#ffffff'), w.gray * 0.6).multiplyScalar(1 - w.gray * 0.75);
